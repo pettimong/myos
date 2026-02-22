@@ -1,0 +1,20 @@
+# ===========================
+# MyOS Project .gitignore
+# ===========================
+
+# Object files
+*.o
+
+# Compiled kernel binary
+kernel.bin
+
+# ISO image
+*.iso
+
+# ISO build folder
+iso/
+
+# Editor / OS temporary files
+*~
+*.swp
+*.bak
