@@ -1,5 +1,6 @@
 #include "screen.h"
 #include <stdint.h>
+#include "print.h"
 
 /* Multiboot header */
 __attribute__((section(".multiboot")))
@@ -11,15 +12,8 @@ const uint32_t multiboot_header[] = {
 
 void kernel_main(void) {
 
-	screen_init();
-
-	puts("Default white\n");
-
-	set_color(COLOR_RED, COLOR_BLACK);
-	puts("Red text\n");
-
-	set_color(COLOR_GREEN, COLOR_BLACK);
-	puts("Green text\n");
-
-    while (1);
+		screen_init();
+		mini_printf("Hello mini_printf!\n");
+		
+		while (1);
 }
