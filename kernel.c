@@ -13,7 +13,9 @@ const uint32_t multiboot_header[] = {
 void kernel_main(void) {
 
 		screen_init();
-		mini_printf("Hello mini_printf!\n");
+		mini_printf("value=%d\n", 42);
 		
-		while (1);
+		while (1) {
+			__asm__("hlt");
+		}
 }
