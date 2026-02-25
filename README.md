@@ -6,29 +6,29 @@
 
 - x86 向けの最小カーネル
 - GRUB ブート対応
-- VGA テキスト出力と無限ループによる基本動作確認
 
-## ディレクトリ構成例
-```
-myos/
-├── kernel.c # カーネル本体
-├── linker.ld # リンカスクリプト
-├── grub.cfg # GRUB 設定
-├── iso/ # ISO 作成用フォルダ
-└── README.md # このファイル
-```
-## ビルド・起動手順
+## Roadmap
+### 画面出力と基礎機能（現在地）
+- [x] VGAテキストモード描画・改行処理の実装
+- [x] スクロール処理の実装・文字列出力
+- [x] 色変更の関数化
+- [x] `printf`的フォーマット対応 
+- [ ] ハードウェアカーソル制御
 
-1. コンパイル・リンク
-   ```bash
-   gcc -m32 -ffreestanding -c kernel.c -o kernel.o
-   ld -m elf_i386 -T linker.ld -o kernel.bin kernel.o
-2. ISO作成
-   ```bash
-   mkdir -p iso/boot/grub
-   cp kernel.bin iso/boot/
-   cp grub.cfg iso/boot/grub/
-   grub-mkrescue -o myos.iso iso
-3. QEMUで起動
-   ```bash
-   qemu-system-i386 -cdrom myos.iso
+### 割り込みの世界へ
+- [ ] GDTの整理（必要なら）
+- [ ] IDT構築
+- [ ] キーボード割り込み
+- [ ] 簡易入力バッファ
+
+### メモリ管理
+- [ ] 物理メモリ管理（ビットマップ方式など）
+- [ ] kmalloc 実装
+- [ ] ページング有効化
+- [ ] 仮想メモリ基盤
+
+### ミニカーネル化
+- [ ] タイマー割り込み
+- [ ] コンテキストスイッチ
+- [ ] 簡易タスク管理
+- [ ] ユーザーモード挑戦（余裕があれば）
