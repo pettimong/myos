@@ -1,19 +1,43 @@
-CC      = gcc
-LD      = ld
+# コンパイラ
+CC=i686-elf-gcc
+LD=i686-elf-ld
+OBJCOPY=i686-elf-objcopy
+CFLAGS=-m32 -ffreestanding -O0 -Wall -Wextra
+LDFLAGS=-T linker.ld
 
-CFLAGS  = -m32 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -Wall -Wextra -c
-LDFLAGS = -m elf_i386 -T linker.ld
+# ファイル
+SRC_C=$(wildcard src/*.c)
+SRC_S=$(wildcard boot/*.S)
+OBJ_C=$(SRC_C:.c=.o)
+OBJ_S=$(SRC_S:.S=.o)
 
-SRCS = kernel.c print.c itoa.c screen.c
-OBJS = $(SRCS:.c=.o)
+# ターゲット
+KERNEL=kernel.elf
+ISO_DIR=isodir
+ISO=$(ISO_DIR)/myos.iso
 
-all: kernel.bin
+.PHONY: all clean iso
 
-kernel.bin: $(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+all: $(KERNEL) iso
 
-%.o: %.c
-	$(CC) $(CFLAGS) $< -o $@
+# カーネルビルド
+$(KERNEL): $(OBJ_C) $(OBJ_S)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+# C コンパイル
+src/%.o: src/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# ASM コンパイル
+boot/%.o: boot/%.S
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# ISO 作成
+iso:
+	mkdir -p $(ISO_DIR)/boot/grub
+	cp $(KERNEL) $(ISO_DIR)/boot/
+	cp boot/grub.cfg $(ISO_DIR)/boot/grub/
+	grub-mkrescue -o $(ISO) $(ISO_DIR)
 
 clean:
-	rm -f *.o kernel.bin
+	rm -rf $(OBJ_C) $(OBJ_S) $(KERNEL) $(ISO_DIR) $(ISO)

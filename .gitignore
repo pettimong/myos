@@ -11,8 +11,9 @@ kernel.bin
 # ISO image
 *.iso
 
-# ISO build folder
+# ISO build folders
 iso/
+boot/
 
 # Editor / OS temporary files
 *~

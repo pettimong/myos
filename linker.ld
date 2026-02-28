@@ -4,12 +4,8 @@ SECTIONS
 {
     . = 1M;
 
-    .text :
-    {
-        *(.multiboot*)
-        *(.text*)
-    }
-
-    .data : { *(.data*) }
-    .bss  : { *(.bss*) }
+    .multiboot : { *(.multiboot) }  /* 先頭に Multiboot2 ヘッダ */
+    .text       : { *(.text*) }
+    .data       : { *(.data*) }
+    .bss        : { *(.bss*) }
 }

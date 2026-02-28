@@ -1,38 +1,40 @@
-# myOS
+# MyOS - README
 
-A tiny kernel project for learning and experimenting.
-## Overview
+## 概要
 
-- Minimal kernel targeting x86
-- Bootable with GRUB 
+このリポジトリは、16bit 環境での学習用ミニカーネル開発を目的とした自作 OS プロジェクトです。
 
-## Roadmap (Current Progress)
-### Basic Screen Output and Core Function
-- [x] VGA text mode rendering with line breaks
-- [x] Scrolling and string output
-- [x] Color-changing functions
-- [x] `printf`-style formatting
-- [ ] Hardware cursor control
+- **ブートローダからカーネルまでの流れ**を体験
+- VGA 表示やキーボード入出力など、BIOS 提供機能を活用
+- 割り込みや簡易的なタスク管理も学習対象
 
-### Entering the World of Interrupts 
-- [ ] Organize GDT (if necessary)
-- [ ] Set up IDT   **<<< NOW!**
-- [ ] Keyboard interrupts
-- [ ] Simple input buffer
+---
 
-### Memory Management
-- [ ] Physical memory management (e.g., bitmap method)
-- [ ] Implement `kmalloc'
-- [ ] Enable paging
-- [ ] Virual memory foundation 
+## 現状の進捗
+- ブートローダからの起動成功
+- VGA 文字出力の printf ライクなモジュール実装
+- 簡単なソフトウェア割り込みを使用した ISR の体験
 
-### Min-Kernel Features
-- [ ] Timer interrupts
-- [ ] Context switching
-- [ ] Simple task management
-- [ ] User mode experiments (if time allows)
+---
 
-## Milestones (Future Plans / Goals)
-- GitHub workflow: Eventually plan to use GitHub Actions to auto-build and run after `pull`.
-- Bochs usage: QEMU for fast tests, Bochs for detailed CPU and interrupt learning.
-- Cross-platform reproducibility: Keep settings, configs, and experimental kernels organized so they can be pulled and tested on multiple machines.
+## 今後のロードマップ（16bit 環境）
+1. **出力系**
+   - キーボードによる入出力制御 
+2. **メモリ管理**
+   - 1MB 未満の範囲で静的・簡易的メモリ確保
+   - スタックやバッファを自作してカーネル内で管理
+3. **擬似タスク管理**
+   - 協調型タスク切り替え（関数や状態の手動切替）
+   - タスク状態の保存・復元
+   - 本格的なマルチタスクは 32bit 環境に移行後に実装予定
+4. **16bit 環境での学習用リリース**
+   - VGA 表示、キーボード入出力、簡易割込み処理（テーブルなし ISR）
+   - メモリ管理と簡易タスク切り替えを組み合わせ、
+
+---
+
+## 32bit 環境への展望
+- 本格的な GDT / IDT / ISR の実装
+- `int3` やその他ハードウェア割り込み処理
+- ページング、仮想メモリ、マルチタスクの導入
+- クロスコンパイラ構築を含む ELF / Multiboot 標準準拠カーネルの作成
