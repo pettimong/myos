@@ -1,34 +1,38 @@
 # myOS
 
-最小カーネル学習用プロジェクトです。
+A tiny kernel project for learning and experimenting.
+## Overview
 
-## 概要
+- Minimal kernel targeting x86
+- Bootable with GRUB 
 
-- x86 向けの最小カーネル
-- GRUB ブート対応
+## Roadmap (Current Progress)
+### Basic Screen Output and Core Function
+- [x] VGA text mode rendering with line breaks
+- [x] Scrolling and string output
+- [x] Color-changing functions
+- [x] `printf`-style formatting
+- [ ] Hardware cursor control
 
-## Roadmap
-### 画面出力と基礎機能（現在地）
-- [x] VGAテキストモード描画・改行処理の実装
-- [x] スクロール処理の実装・文字列出力
-- [x] 色変更の関数化
-- [x] `printf`的フォーマット対応 
-- [ ] ハードウェアカーソル制御
+### Entering the World of Interrupts (Current Progress)
+- [ ] Organize GDT (if necessary)
+- [ ] Set up IDT <<<** NOW!**
+- [ ] Keyboard interrupts
+- [ ] Simple input buffer
 
-### 割り込みの世界へ
-- [ ] GDTの整理（必要なら）
-- [ ] IDT構築
-- [ ] キーボード割り込み
-- [ ] 簡易入力バッファ
+### Memory Management
+- [ ] Physical memory management (e.g., bitmap method)
+- [ ] Implement `kmalloc'
+- [ ] Enable paging
+- [ ] Virual memory foundation 
 
-### メモリ管理
-- [ ] 物理メモリ管理（ビットマップ方式など）
-- [ ] kmalloc 実装
-- [ ] ページング有効化
-- [ ] 仮想メモリ基盤
+### Min-Kernel Features
+- [ ] Timer interrupts
+- [ ] Context switching
+- [ ] Simple task management
+- [ ] User mode experiments (if time allows)
 
-### ミニカーネル化
-- [ ] タイマー割り込み
-- [ ] コンテキストスイッチ
-- [ ] 簡易タスク管理
-- [ ] ユーザーモード挑戦（余裕があれば）
+### Milestones (Future Plans / Goals)
+- GitHub workflow: Eventually plan to use GitHub Actions to auto-build and run after `git pull`.
+- Bochs usage: QEMU for fast tests, Bochs for detailed CPU and interrupt learning.
+- Cross-platform reproducibility: Keep settings, configs, and experimental kernels organized so they can be pulled and tested on multiple machines.
