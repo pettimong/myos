@@ -32,7 +32,7 @@ A tiny kernel project for learning and experimenting.
 - [ ] Simple task management
 - [ ] User mode experiments (if time allows)
 
-### Milestones (Future Plans / Goals)
+## Milestones (Future Plans / Goals)
 - GitHub workflow: Eventually plan to use GitHub Actions to auto-build and run after `git pull`.
 - Bochs usage: QEMU for fast tests, Bochs for detailed CPU and interrupt learning.
 - Cross-platform reproducibility: Keep settings, configs, and experimental kernels organized so they can be pulled and tested on multiple machines.
