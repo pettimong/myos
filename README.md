@@ -14,7 +14,7 @@ A tiny kernel project for learning and experimenting.
 - [x] `printf`-style formatting
 - [ ] Hardware cursor control
 
-### Entering the World of Interrupts (Current Progress)
+### Entering the World of Interrupts 
 - [ ] Organize GDT (if necessary)
 - [ ] Set up IDT   **<<< NOW!**
 - [ ] Keyboard interrupts
