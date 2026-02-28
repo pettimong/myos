@@ -16,7 +16,7 @@ A tiny kernel project for learning and experimenting.
 
 ### Entering the World of Interrupts (Current Progress)
 - [ ] Organize GDT (if necessary)
-- [ ] Set up IDT <<<** NOW!**
+- [ ] Set up IDT   **<<< NOW!**
 - [ ] Keyboard interrupts
 - [ ] Simple input buffer
 
