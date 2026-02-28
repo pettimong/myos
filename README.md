@@ -1,40 +1,44 @@
 # MyOS - README
 
-## 概要
+## Overview
 
-このリポジトリは、16bit 環境での学習用ミニカーネル開発を目的とした自作 OS プロジェクトです。
+This repository is a hobby OS project aimed at learning the basics of a mini kernel in a 16-bit environment.
 
-- **ブートローダからカーネルまでの流れ**を体験
-- VGA 表示やキーボード入出力など、BIOS 提供機能を活用
-- 割り込みや簡易的なタスク管理も学習対象
-
----
-
-## 現状の進捗
-- ブートローダからの起動成功
-- VGA 文字出力の printf ライクなモジュール実装
-- 簡単なソフトウェア割り込みを使用した ISR の体験
+- Experience the full flow from bootloader to kernel
+- Utilize BIOS-provided features such as VGA display and keyboard I/O
+- Learn about interrupts and simple task management
 
 ---
 
-## 今後のロードマップ（16bit 環境）
-1. **出力系**
-   - キーボードによる入出力制御 
-2. **メモリ管理**
-   - 1MB 未満の範囲で静的・簡易的メモリ確保
-   - スタックやバッファを自作してカーネル内で管理
-3. **擬似タスク管理**
-   - 協調型タスク切り替え（関数や状態の手動切替）
-   - タスク状態の保存・復元
-   - 本格的なマルチタスクは 32bit 環境に移行後に実装予定
-4. **16bit 環境での学習用リリース**
-   - VGA 表示、キーボード入出力、簡易割込み処理（テーブルなし ISR）
-   - メモリ管理と簡易タスク切り替えを組み合わせ、
+## Current Progress
+
+- Bootloader successfully loads the kernel
+- Implemented a printf-like module for VGA text output
+- Experimented with a simple software interrupt (ISR) without using a table
+- Verified keyboard input and output workflow
 
 ---
 
-## 32bit 環境への展望
-- 本格的な GDT / IDT / ISR の実装
-- `int3` やその他ハードウェア割り込み処理
-- ページング、仮想メモリ、マルチタスクの導入
-- クロスコンパイラ構築を含む ELF / Multiboot 標準準拠カーネルの作成
+## Roadmap (16-bit Environment)
+
+1. **Memory Management**
+   - Allocate static or simple dynamic memory within the 1MB address space
+   - Manage stack and buffers manually within the kernel
+
+2. **Pseudo Task Management**
+   - Cooperative task switching (manual switching of functions or states)
+   - Save and restore task states
+   - Full multitasking will be implemented later in a 32-bit environment
+
+3. **16-bit Learning Release**
+   - VGA display, keyboard input/output, and simple interrupt handling (ISR without table)
+   - Combine memory management and pseudo task switching to form a functional learning mini-kernel
+
+---
+
+## Outlook for 32-bit Environment
+
+- Implement full GDT / IDT / ISR
+- Support hardware interrupts such as `int3`
+- Add paging, virtual memory, and multitasking
+- Build an ELF / Multiboot-compliant kernel using a cross-compiler
