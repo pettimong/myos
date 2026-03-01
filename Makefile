@@ -1,43 +1,22 @@
-# コンパイラ
-CC=i686-elf-gcc
-LD=i686-elf-ld
-OBJCOPY=i686-elf-objcopy
-CFLAGS=-m32 -ffreestanding -O0 -Wall -Wextra
-LDFLAGS=-T linker.ld
+ASM=nasm
+IMG=myos.img
 
-# ファイル
-SRC_C=$(wildcard src/*.c)
-SRC_S=$(wildcard boot/*.S)
-OBJ_C=$(SRC_C:.c=.o)
-OBJ_S=$(SRC_S:.S=.o)
+all: $(IMG)
 
-# ターゲット
-KERNEL=kernel.elf
-ISO_DIR=isodir
-ISO=$(ISO_DIR)/myos.iso
+$(IMG): boot.bin kernel.bin
+	cat boot.bin kernel.bin > $(IMG)
 
-.PHONY: all clean iso
+boot.bin:
+	$(ASM) -f bin boot.asm -o boot.bin
 
-all: $(KERNEL) iso
+kernel.bin:
+	$(ASM) -f bin kernel.asm -o kernel.bin
 
-# カーネルビルド
-$(KERNEL): $(OBJ_C) $(OBJ_S)
-	$(LD) $(LDFLAGS) -o $@ $^
+run:
+	qemu-system-i386 -drive format=raw,file=$(IMG)
 
-# C コンパイル
-src/%.o: src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# ASM コンパイル
-boot/%.o: boot/%.S
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# ISO 作成
-iso:
-	mkdir -p $(ISO_DIR)/boot/grub
-	cp $(KERNEL) $(ISO_DIR)/boot/
-	cp boot/grub.cfg $(ISO_DIR)/boot/grub/
-	grub-mkrescue -o $(ISO) $(ISO_DIR)
+run-tty:
+	qemu-system-i386 -drive format=raw,file=$(IMG) -nographic -monitor none -serial stdio
 
 clean:
-	rm -rf $(OBJ_C) $(OBJ_S) $(KERNEL) $(ISO_DIR) $(ISO)
+	rm -f *.bin *.img

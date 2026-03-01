@@ -10,6 +10,7 @@ kernel.bin
 
 # ISO image
 *.iso
+*.img
 
 # ISO build folders
 iso/
