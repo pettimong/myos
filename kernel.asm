@@ -2,6 +2,17 @@ org 0x8000
 bits 16
 
 start:
+	
+	; --- VRAM直接書き込みテスト ---
+    mov ax, 0xB800      ; VRAMのセグメント開始地点
+    mov es, ax          ; ESレジスタにセット
+    
+    mov al, 'A'         ; 表示したい文字
+    mov ah, 0x0C        ; 属性：黒背景(0) + 明るい赤(C)
+    
+    mov [es:0], ax      ; 画面の左上（0番目）に書き込む！
+    ; ---------------------------
+
     cli
     cld                 ; ★ 方向フラグを必ずクリア
 
@@ -29,11 +40,15 @@ get_key:
     ; AL = ASCII
     ; AH = スキャンコード
 
-    cmp al, 0
-    je .done            ; 非ASCIIは無視
+    cmp al, 13
+	jne .not_enter
+	call print_char
+	mov al, 10
+	call print_char
+    jmp .done            ; 非ASCIIは無視
 
-    call print_char
-
+.not_enter:
+	call print_char
 .done:
     ret
 
