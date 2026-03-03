@@ -9,6 +9,11 @@ start:
     mov ds, ax
     mov es, ax
     
+    ; --- スタックの初期化 ---
+    mov ss, ax          ; SS を 0 に設定
+    mov sp, 0x7C00      ; SP を 0x7C00 に設定 (ブートセクタが使っていた場所の下など)
+    sti                 ; スタック設定が終わってから割り込みを許可
+ 
     mov si, msg_vram
     call print_vram
 
