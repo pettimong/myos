@@ -20,3 +20,6 @@ boot/
 *~
 *.swp
 *.bak
+
+# Others 
+dev_log.md
