@@ -89,3 +89,31 @@ do_backspace:
     pop di
     pop ax
     ret
+
+; AXレジスタの値を16進数で表示する
+print_hex:
+    pusha
+    mov cx, 4           ; 16進数4桁分ループ
+.loop:
+    push cx
+    rol ax, 4           ; 最上位4ビットを最下位へ
+    mov bx, ax
+    and bx, 0x000F      ; 下位4ビットのみ抽出
+    cmp bl, 10
+    jl .is_digit
+    add bl, 7           ; 'A'-'F'用
+.is_digit:
+    add bl, '0'         ; ASCIIに変換
+    
+    ; 画面表示（print_vramを流用するため一時的にバッファ化）
+    mov [hex_buf], bl
+    mov byte [hex_buf+1], 0
+    mov si, hex_buf
+    call print_vram
+    
+    pop cx
+    loop .loop
+    popa
+    ret
+
+hex_buf db 0, 0
