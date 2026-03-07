@@ -17,6 +17,19 @@ start:
     mov ss, ax
     mov sp, 0x7C00
     sti
+
+; --- 画面消去 (BIOS中断 0x10, AH=0x06 を使用) ---
+    mov ax, 0x0600    ; AH=06h(スクロールアップ), AL=00h(全画面消去)
+    mov bh, 0x07      ; 属性: 黒背景 / 白文字 (0x07)
+    mov cx, 0x0000    ; 左上座標 (行:0, 列:0)
+    mov dx, 0x184F    ; 右下座標 (行:24, 列:79) ※標準的な80x25画面
+    int 0x10          ; BIOS呼び出し
+
+    ; --- カーソル位置を左上(0,0)に戻す ---
+    mov ah, 0x02      ; AH=02h(カーソル設定)
+    mov bh, 0x00      ; ページ番号
+    mov dx, 0x0000    ; DH=0(行), DL=0(列)
+    int 0x10
     
     mov si, msg_ready
     call print_vram

@@ -10,7 +10,6 @@ print_vram:
     mov ax, 0xB800
     mov es, ax
     mov di, [cursor_pos]
-
 .next_char:
     lodsb
     cmp al, 0
@@ -23,7 +22,6 @@ print_vram:
     mov byte [es:di+1], 0x07
     add di, 2
     jmp .next_char
-
 .handle_cr:
     mov ax, di
     mov bl, 160
@@ -31,11 +29,9 @@ print_vram:
     movzx bx, ah
     sub di, bx
     jmp .next_char
-
 .handle_lf:
     add di, 160
     jmp .next_char
-
 .vram_done:
     mov [cursor_pos], di 
     call update_cursor
@@ -70,50 +66,55 @@ update_cursor:
     ret
 
 do_backspace:
-    push ax
+    push es
     push di
-    mov di, [cursor_pos]
-    cmp di, 0
-    je .done          ; 左端なら何もしない
-    
-    sub di, 2         ; 1文字分戻る
-    mov [cursor_pos], di
-    
-    ; VRAM上の文字を消去（黒背景にスペース）
+    push cx
+    push bx
+    push ax
+
     mov ax, 0xB800
     mov es, ax
-    mov word [es:di], 0x0720 ; 0x07(白) + 0x20(スペース)
+    mov di, [cursor_pos]
     
+    cmp di, 0
+    je .done
+
+    ; 現在の列位置をチェック
+    mov ax, di
+    mov bl, 160
+    div bl
+    cmp ah, 0
+    jne .normal_bs
+
+.prev_line_scan:
+    ; 行頭にいるので1行上へ
+    sub di, 2
+    mov cx, 80
+.scan_loop:
+    cmp byte [es:di], ' '
+    jne .found_char    ; 空白以外を見つけた
+    cmp cx, 1
+    je .found_char     ; 行頭まで来た
+    sub di, 2
+    loop .scan_loop
+.found_char:
+    ; 文字の直後を消去対象にする
+    cmp byte [es:di], ' '
+    je .update
+    add di, 2
+    jmp .update
+
+.normal_bs:
+    sub di, 2
+.update:
+    mov [cursor_pos], di
+    mov word [es:di], 0x0720 ; 消去
     call update_cursor
+
 .done:
-    pop di
     pop ax
-    ret
-
-; AXレジスタの値を16進数で表示する
-print_hex:
-    pusha
-    mov cx, 4           ; 16進数4桁分ループ
-.loop:
-    push cx
-    rol ax, 4           ; 最上位4ビットを最下位へ
-    mov bx, ax
-    and bx, 0x000F      ; 下位4ビットのみ抽出
-    cmp bl, 10
-    jl .is_digit
-    add bl, 7           ; 'A'-'F'用
-.is_digit:
-    add bl, '0'         ; ASCIIに変換
-    
-    ; 画面表示（print_vramを流用するため一時的にバッファ化）
-    mov [hex_buf], bl
-    mov byte [hex_buf+1], 0
-    mov si, hex_buf
-    call print_vram
-    
+    pop bx
     pop cx
-    loop .loop
-    popa
+    pop di
+    pop es
     ret
-
-hex_buf db 0, 0
