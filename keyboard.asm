@@ -54,8 +54,8 @@ get_key:
     call print_vram
     call check_command
     mov word [buffer_ptr], 0  ; バッファリセット
-    mov si, msg_newline
-    call print_vram
+    ; mov si, msg_newline
+    ; call print_vram
 	call print_prompt
     jmp .pop_done
 
@@ -70,6 +70,7 @@ get_key:
     jmp .pop_done
 
 .pop_done:
+
 .pop_done_simple:
     pop bx
 .get_key_exit:
@@ -78,48 +79,56 @@ get_key:
 check_command:
     pusha
 
-	; --- hello の厳密判定 ---
-	mov si, SHELL_BUFFER_ADDR
+    ; --- 1. hello の判定 ---
+    mov si, SHELL_BUFFER_ADDR
     mov di, cmd_hello
-    mov cx, 5          ; "hello" は5文字
+    mov cx, 5
     repe cmpsb
-    jne .try_exit      ; 不一致なら次へ
-    cmp byte [si], 0   ; 入力側の次の文字が 0 か？
-    jne .not_match     ; 0 でなければ "hello..." なので不一致
+    jne .try_cls       ; hello でなければ cls の判定へ
+    cmp byte [si], 0
+    jne .try_cls       ; hello... などの続き文字があれば cls の判定へ
+    jmp .match_hello   ; 完全に一致
 
-	mov si, msg_fine
+.try_cls:              ; --- 2. cls の判定 ---
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_cls
+    mov cx, 3
+    repe cmpsb
+    jne .try_exit      ; cls でなければ exit の判定へ
+    cmp byte [si], 0
+    jne .try_exit
+    jmp .match_cls
+
+.try_exit:             ; --- 3. exit の判定 ---
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_exit
+    mov cx, 4
+    repe cmpsb
+    jne .not_match     ; 全て不一致なら Unknown へ
+    cmp byte [si], 0
+    jne .not_match
+    call qemu_exit
+    jmp .done
+
+.match_hello:
+    mov si, msg_fine
+    call print_vram
+	mov si, msg_newline
 	call print_vram
-	jmp .done
-
-	; --- cls の判定 ---
-	mov si, SHELL_BUFFER_ADDR
-	mov di, cmd_cls
-	mov cx, 3
-	repe cmpsb
-	je .match_cls
-
-	jmp .not_match
-
-.try_exit:
-	; --- exit の判定 ---
-	mov si, SHELL_BUFFER_ADDR
-	mov di, cmd_exit
-	mov cx, 4
-	repe cmpsb
-	jne .not_match
-	cmp byte [si], 0
-	jne .not_match
-
-	call qemu_exit
-	jmp .done
+    jmp .done
 
 .match_cls:
-	call clear_screen
-	jmp .done
+    call clear_screen
+	mov si, msg_ready
+	call print_vram
+    jmp .done
 
 .not_match:
     mov si, msg_unknown
     call print_vram
+	mov si, msg_newline
+	call print_vram
+
 .done:
     popa
     ret
