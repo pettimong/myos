@@ -1,6 +1,20 @@
 ; vga.asm
 cursor_pos dw 0
 
+clear_screen:
+    pusha
+    mov ax, 0x0600    ; 全画面消去
+    mov bh, 0x07      ; 白文字/黒背景
+    mov cx, 0x0000    ; 左上
+    mov dx, 0x184F    ; 右下
+    int 0x10
+    
+    ; カーソル位置を0にリセット
+    mov word [cursor_pos], 0
+    call update_cursor
+    popa
+    ret
+
 print_vram:
     push ax
     push bx
@@ -118,3 +132,11 @@ do_backspace:
     pop di
     pop es
     ret
+
+print_prompt:
+	push si
+	mov si, msg_prompt
+	call print_vram
+	pop si
+	ret
+

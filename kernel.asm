@@ -34,6 +34,8 @@ start:
     mov si, msg_ready
     call print_vram
 
+	call print_prompt
+
 main_loop:
     call get_key
     jmp main_loop

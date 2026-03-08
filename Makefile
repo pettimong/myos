@@ -27,7 +27,8 @@ $(IMG): $(BOOT_BIN) $(KERNEL_BIN)
 	truncate -s 1440k $(IMG)
 
 run: $(IMG)
-	qemu-system-x86_64 -drive format=raw,file=$(IMG)
+#	qemu-system-x86_64 -drive format=raw,file=$(IMG)
+	qemu-system-x86_64 -drive format=raw,file=$(IMG) -device isa-debug-exit,iobase=0xf4,iosize=0x04
 
 clean:
 	rm -f *.bin $(IMG)

@@ -56,6 +56,7 @@ get_key:
     mov word [buffer_ptr], 0  ; バッファリセット
     mov si, msg_newline
     call print_vram
+	call print_prompt
     jmp .pop_done
 
 .is_backspace:
@@ -76,17 +77,46 @@ get_key:
 
 check_command:
     pusha
-    mov si, SHELL_BUFFER_ADDR
+
+	; --- hello の厳密判定 ---
+	mov si, SHELL_BUFFER_ADDR
     mov di, cmd_hello
-    mov cx, 5
+    mov cx, 5          ; "hello" は5文字
     repe cmpsb
-    jne .not_match
-    cmp byte [si], 0
-    jne .not_match
-.match:
-    mov si, msg_fine
-    call print_vram
-    jmp .done
+    jne .try_exit      ; 不一致なら次へ
+    cmp byte [si], 0   ; 入力側の次の文字が 0 か？
+    jne .not_match     ; 0 でなければ "hello..." なので不一致
+
+	mov si, msg_fine
+	call print_vram
+	jmp .done
+
+	; --- cls の判定 ---
+	mov si, SHELL_BUFFER_ADDR
+	mov di, cmd_cls
+	mov cx, 3
+	repe cmpsb
+	je .match_cls
+
+	jmp .not_match
+
+.try_exit:
+	; --- exit の判定 ---
+	mov si, SHELL_BUFFER_ADDR
+	mov di, cmd_exit
+	mov cx, 4
+	repe cmpsb
+	jne .not_match
+	cmp byte [si], 0
+	jne .not_match
+
+	call qemu_exit
+	jmp .done
+
+.match_cls:
+	call clear_screen
+	jmp .done
+
 .not_match:
     mov si, msg_unknown
     call print_vram
@@ -94,7 +124,16 @@ check_command:
     popa
     ret
 
+qemu_exit:
+	mov ax, 0x00
+	mov dx, 0xf4
+	out dx, ax
+	ret
+
 cmd_hello    db "hello", 0
 msg_fine     db "Fine!", 0
+cmd_cls db "cls", 0
 msg_unknown  db "Unknown", 0
 msg_newline  db 13, 10, 0
+msg_prompt db "> ", 0
+cmd_exit db "exit", 0
