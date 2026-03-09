@@ -3,11 +3,11 @@ org 0x8000
 bits 16
 
 ; --- 定数定義 ---
-SHELL_BUFFER_ADDR equ 0x9000  ; バッファの開始位置
-SHELL_BUFFER_SIZE equ 80      ; 最大80文字
+SHELL_BUFFER_ADDR equ 0x9000
+SHELL_BUFFER_SIZE equ 80
 
 start:
-    cli
+    cli                 ; 割り込み禁止
     cld
     xor ax, ax
     mov ds, ax
@@ -16,33 +16,64 @@ start:
     ; スタックの設定
     mov ss, ax
     mov sp, 0x7C00
-    sti
 
-; --- 画面消去 (BIOS中断 0x10, AH=0x06 を使用) ---
-    mov ax, 0x0600    ; AH=06h(スクロールアップ), AL=00h(全画面消去)
-    mov bh, 0x07      ; 属性: 黒背景 / 白文字 (0x07)
-    mov cx, 0x0000    ; 左上座標 (行:0, 列:0)
-    mov dx, 0x184F    ; 右下座標 (行:24, 列:79) ※標準的な80x25画面
-    int 0x10          ; BIOS呼び出し
+    ; --- IVTの書き換え (INT 0x08 = 0x0000:0x0020) ---
+    mov word [es:0x0020], timer_handler ; オフセット
+    mov word [es:0x0022], cs            ; セグメント
+    
+    sti                 ; 割り込み開始
 
-    ; --- カーソル位置を左上(0,0)に戻す ---
-    mov ah, 0x02      ; AH=02h(カーソル設定)
-    mov bh, 0x00      ; ページ番号
-    mov dx, 0x0000    ; DH=0(行), DL=0(列)
+    ; --- 画面初期化 (BIOS) ---
+    mov ax, 0x0600
+    mov bh, 0x07
+    mov cx, 0x0000
+    mov dx, 0x184F
+    int 0x10
+
+    mov ah, 0x02
+    mov bh, 0x00
+    mov dx, 0x0000
     int 0x10
     
     mov si, msg_ready
     call print_vram
-
-	call print_prompt
+    call print_prompt
 
 main_loop:
     call get_key
     jmp main_loop
 
+; --- タイマー割り込みハンドラ ---
+; BIOSへ飛ばさず、自前でEOIを出して復帰する最小構成
+
+timer_handler:
+    push ax
+    push ds
+    
+    xor ax, ax          ; データセグメントを0に固定（変数アクセス用）
+    mov ds, ax
+    
+    pusha               ; 全レジスタ保存
+    call draw_timer     ; vga.asm内の描画処理
+    popa
+    
+    ; PIC (割り込みコントローラ) に終了を通知 (EOI)
+    mov al, 0x20
+    out 0x20, al
+    
+    pop ds
+    pop ax
+    iret                ; 割り込みから復帰
+
+
+
+; 外部ファイルの取り込み
 %include "vga.asm"
 %include "keyboard.asm"
 
 ; --- データ領域 ---
-msg_ready  db "Memory Buffer Ready at 0x9000", 13, 10, 0
-buffer_ptr dw 0  ; 現在バッファの何文字目に書き込むか
+msg_ready  db "Kernel Loaded. Timer Hooked.", 13, 10, 0
+buffer_ptr dw 0
+
+old_timer_off dw 0
+old_timer_seg dw 0

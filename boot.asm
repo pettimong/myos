@@ -20,13 +20,14 @@ hang:
 
 load_kernel:
     mov ah, 0x02
-    mov al, 4          ; 読み込むセクタ数
+    mov al, 20          ; 読み込むセクタ数
     mov ch, 0
     mov cl, 2
     mov dh, 0
     mov dl, [BOOT_DRIVE]
     mov bx, 0x8000
     int 0x13
+	jc load_kernel
     ret
 
 BOOT_DRIVE db 0
