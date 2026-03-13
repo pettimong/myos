@@ -1,25 +1,61 @@
 ; vga.asm
 timer_count dw 0  ; カウント用変数
 
-; 割り込みから呼ばれる描画関数
-draw_timer:
+; --- 新設: 数値を描画する関数 ---
+; 入力: AX = 表示したい数値, DI = 表示開始のVRAMオフセット
+draw_number:
+    pusha
     push es
-    mov ax, 0xB800
-    mov es, ax
+    mov bx, 0xB800
+    mov es, bx
+    
+    mov bx, 10          ; 除数
+    mov cx, 0           ; 桁数カウンタ
+
+.loop_div:
+    xor dx, dx
+    div bx              ; AX / 10 (商はAX, 余りはDX)
+    add dl, '0'         ; 余りをASCII文字に
+    push dx             ; スタックに保存
+    inc cx
+    test ax, ax
+    jnz .loop_div       ; 商が0になるまで繰り返す
+
+.loop_print:
+    pop ax              ; スタックから1桁取り出す
+    mov [es:di], al     ; 文字を書き込む
+    mov byte [es:di+1], 0x0E ; 属性（黄色）
+    add di, 2
+    loop .loop_print
+
+    ; 残りの古い文字を消すための空白埋め（必要に応じて）
+    mov byte [es:di], ' '
+    mov byte [es:di+1], 0x07
+
+    pop es
+    popa
+    ret
+
+; 割り込みから呼ばれる描画関数
+
+draw_timer:
+    pusha
+    push es
     
     inc word [timer_count]
-    
-    ; 動作確認：画面右端(158)に、回数に応じて文字を変えて表示
+
+    ; 秒数の計算 (timer_count / 18)
     mov ax, [timer_count]
-    and al, 0x01        ; 0か1かで切り替え
-    jnz .mark_b
-    mov byte [es:158], '+'
-    jmp .draw_done
-.mark_b:
-    mov byte [es:158], 'x'
-.draw_done:
-    mov byte [es:159], 0x0E ; 黄色
+    xor dx, dx
+    mov bx, 18
+    div bx              ; AX = 秒数
+
+    ; 画面右上の適当な位置 (例: 140バイト目あたりから) に表示
+    mov di, 140         
+    call draw_number
+
     pop es
+    popa
     ret
 
 cursor_pos dw 0
