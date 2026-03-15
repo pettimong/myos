@@ -1,6 +1,35 @@
 ; vga.asm
 timer_count dw 0  ; カウント用変数
 
+; --- 8bitの数値を2進数で描画する (例: 01101010) ---
+; 入力: AL = 表示したい数値, DI = VRAMオフセット
+draw_binary:
+    pusha
+    push es
+    mov bx, 0xB800
+    mov es, bx
+    mov cx, 8           ; 8ビット分繰り返す
+
+.loop:
+    rol al, 1           ; 最上位ビットをキャリーフラグへ送り出しつつ回転
+    jc .print_one       ; キャリーが1なら '1' を表示
+    
+    ; '0' を表示
+    mov byte [es:di], '0'
+    jmp .next
+    
+.print_one:
+    mov byte [es:di], '1'
+    
+.next:
+    mov byte [es:di+1], 0x0E ; 黄色属性
+    add di, 2
+    loop .loop
+
+    pop es
+    popa
+    ret
+
 ; --- 新設: 数値を描画する関数 ---
 ; 入力: AX = 表示したい数値, DI = 表示開始のVRAMオフセット
 draw_number:
@@ -77,7 +106,12 @@ print_vram:
     push bx
     push dx
     push es
-    push di
+	push ds
+    push si
+
+	xor ax, ax
+	mov ds, ax
+
     mov ax, 0xB800
     mov es, ax
     mov di, [cursor_pos]
@@ -106,7 +140,8 @@ print_vram:
 .vram_done:
     mov [cursor_pos], di 
     call update_cursor
-    pop di
+	pop si
+	pop ds
     pop es
     pop dx
     pop bx
@@ -182,8 +217,14 @@ do_backspace:
     ret
 
 print_prompt:
+    push ds       ; 保存
     push si
+    push ax
+    mov ax, cs    ; 現在のコードセグメント（データの場所）を
+    mov ds, ax    ; DSにセットする
     mov si, msg_prompt
     call print_vram
+    pop ax
     pop si
+    pop ds        ; 復元
     ret

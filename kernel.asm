@@ -34,10 +34,12 @@ start:
     mov bh, 0x00
     mov dx, 0x0000
     int 0x10
-    
-    mov si, msg_ready
+
+    ; --- タイトル画面表示 ---
+    mov si, msg_title
     call print_vram
-    call print_prompt
+    mov si, msg_start
+    call print_vram
 
 main_loop:
     call get_key
@@ -67,13 +69,18 @@ timer_handler:
 
 
 
-; 外部ファイルの取り込み
-%include "vga.asm"
-%include "keyboard.asm"
-
 ; --- データ領域 ---
-msg_ready  db "Kernel Loaded. Timer Hooked.", 13, 10, 0
-buffer_ptr dw 0
+msg_title  db "=== Binary Puzzle Game ===", 13, 10, 0
+msg_start  db "Hit 'g' key to start...", 13, 10, 0
 
 old_timer_off dw 0
 old_timer_seg dw 0
+
+; 変数
+START_VAL    db 0
+CURRENT_VAL  db 0
+GOAL_VAL     db 0
+buffer_ptr   dw 0
+
+%include "vga.asm"
+%include "keyboard.asm"
