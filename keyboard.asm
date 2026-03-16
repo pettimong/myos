@@ -61,6 +61,10 @@ get_key:
     je .auto_xor
     cmp al, 'n'
     je .auto_not
+    cmp al, 's'
+    je .auto_shl
+    cmp al, 'r'
+    je .auto_shr
 
     jmp .normal_input
 
@@ -91,6 +95,26 @@ get_key:
     mov byte [SHELL_BUFFER_ADDR + bx], 'n'
     mov byte [SHELL_BUFFER_ADDR + bx + 1], 'o'
     mov byte [SHELL_BUFFER_ADDR + bx + 2], 't'
+    add word [buffer_ptr], 3
+    jmp .pop_done
+
+.auto_shl:
+    mov si, cmd_shl_str
+    call print_vram
+    mov bx, [buffer_ptr]
+    mov byte [SHELL_BUFFER_ADDR + bx], 's'
+    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'h'
+    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'l'
+    add word [buffer_ptr], 3
+    jmp .pop_done
+
+.auto_shr:
+    mov si, cmd_shr_str
+    call print_vram
+    mov bx, [buffer_ptr]
+    mov byte [SHELL_BUFFER_ADDR + bx], 's'
+    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'h'
+    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'r'
     add word [buffer_ptr], 3
     jmp .pop_done
 
@@ -158,12 +182,14 @@ check_command:
     cmp byte [si], 'g'
     jne .try_add
 
-    ; --- g コマンド: タイマー値からスタート値・ゴール値を生成 ---
+    ; --- g コマンド: スタート値を設定してゴール値を生成 ---
     mov ax, [timer_count]
     mov [START_VAL], al
     mov [CURRENT_VAL], al
-    add al, 0x2A
-    mov [GOAL_VAL], al
+
+    call generate_goal      ; GOAL_VAL を6ステップのランダム演算で生成
+
+    mov byte [TRIES_LEFT], 5    ; 残り回数をリセット
 
     call clear_screen
 
@@ -189,6 +215,13 @@ check_command:
     jne .try_xor
 
     inc byte [CURRENT_VAL]
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
     jmp .show_result
 
 .try_xor:
@@ -200,6 +233,13 @@ check_command:
     jne .try_not
 
     xor byte [CURRENT_VAL], 0x0F
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
     jmp .show_result
 
 .try_not:
@@ -208,9 +248,52 @@ check_command:
     mov cx, 3
     cld
     repe cmpsb
-    jne .try_cls
+    jne .try_shl
 
     not byte [CURRENT_VAL]
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
+    jmp .show_result
+
+.try_shl:
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_shl_str
+    mov cx, 3
+    cld
+    repe cmpsb
+    jne .try_shr
+
+    shl byte [CURRENT_VAL], 1
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
+    jmp .show_result
+
+.try_shr:
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_shr_str
+    mov cx, 3
+    cld
+    repe cmpsb
+    jne .try_cls
+
+    shr byte [CURRENT_VAL], 1
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
     jmp .show_result
 
 .try_cls:
@@ -235,6 +318,25 @@ check_command:
     jne .not_match
     call qemu_exit
     jmp .done
+
+.victory_early:
+    ; 最後の1手で正解した場合 — TRIES_LEFT を消費せずに勝利処理へ
+    ; show_result の描画だけ先に行ってから victory へ飛ぶ
+    mov ax, 0xB800
+    mov es, ax
+    mov di, 320
+    mov cx, 80
+.clear_early_line:
+    mov byte [es:di], ' '
+    mov byte [es:di+1], 0x07
+    add di, 2
+    loop .clear_early_line
+
+    mov al, [CURRENT_VAL]
+    mov di, 480
+    call draw_binary
+
+    jmp .victory
 
 .show_result:
     ; --- A. 入力行(3行目)を掃除 ---
@@ -284,6 +386,29 @@ check_command:
     mov word [cursor_pos], 640
     call update_cursor
     mov si, msg_win
+    call print_vram
+
+    mov byte [START_VAL], 0
+    mov word [buffer_ptr], 0
+    mov byte [SHELL_BUFFER_ADDR], 0
+    jmp .done
+
+.game_over:
+    ; 入力行(3行目)を掃除
+    mov ax, 0xB800
+    mov es, ax
+    mov di, 320
+    mov cx, 80
+.clear_gameover_line:
+    mov byte [es:di], ' '
+    mov byte [es:di+1], 0x07
+    add di, 2
+    loop .clear_gameover_line
+
+    ; Game Over メッセージを5行目に表示
+    mov word [cursor_pos], 640
+    call update_cursor
+    mov si, msg_gameover
     call print_vram
 
     mov byte [START_VAL], 0
@@ -350,4 +475,7 @@ cmd_exit     db "exit", 0
 cmd_add_str  db "add", 0
 cmd_xor_str  db "xor", 0
 cmd_not_str  db "not", 0
+cmd_shl_str  db "shl", 0
+cmd_shr_str  db "shr", 0
 msg_win      db "=== YOU WIN! ===", 13, 10, "Press 'g' to start again.", 0
+msg_gameover db "=== GAME OVER ===", 13, 10, "Press 'g' to try again.", 0

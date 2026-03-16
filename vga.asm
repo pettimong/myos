@@ -66,26 +66,61 @@ draw_number:
     ret
 
 ; 割り込みから呼ばれる描画関数
+; タイマーカウントは内部で継続するが、表示は「Tries: X」に変更
 
 draw_timer:
     pusha
-    push es
-    
     inc word [timer_count]
+    call draw_tries
+    popa
+    ret
 
-    ; 秒数の計算 (timer_count / 18)
-    mov ax, [timer_count]
-    xor dx, dx
-    mov bx, 18
-    div bx              ; AX = 秒数
+; --- Tries: X を画面右上(di=140)に描画する ---
+; keyboard.asm からも呼べる独立関数
+draw_tries:
+    pusha
+    push es
+    push ds
 
-    ; 画面右上の適当な位置 (例: 140バイト目あたりから) に表示
-    mov di, 140         
-    call draw_number
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
 
+    ; START_VAL が 0 のとき（ゲーム未開始）は表示しない
+    cmp byte [START_VAL], 0
+    je .dt_skip
+
+    mov bx, 0xB800
+    mov es, bx
+
+    ; "Tries: " を di=140 から書く
+    mov di, 140
+    mov si, msg_tries
+.dt_label:
+    lodsb
+    cmp al, 0
+    je .dt_num
+    mov [es:di], al
+    mov byte [es:di+1], 0x07
+    add di, 2
+    jmp .dt_label
+
+.dt_num:
+    ; 残り回数を1桁で表示
+    xor ax, ax
+    mov ds, ax
+    mov al, [TRIES_LEFT]
+    add al, '0'
+    mov [es:di], al
+    mov byte [es:di+1], 0x0E   ; 黄色
+
+.dt_skip:
+    pop ds
     pop es
     popa
     ret
+
+msg_tries db "Tries: ", 0
 
 cursor_pos dw 0
 
