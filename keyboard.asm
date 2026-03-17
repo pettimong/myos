@@ -12,7 +12,6 @@ key_table:
     db 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' '
 
 ; --- プロンプト "> " を直接VRAMに書き込む ---
-; DS/ESの状態に依存しない。cursor_posの位置に描画してカーソルを進める。
 draw_prompt:
     push ax
     push es
@@ -24,7 +23,7 @@ draw_prompt:
     mov byte [es:di+1], 0x07
     mov byte [es:di+2], ' '
     mov byte [es:di+3], 0x07
-    add di, 4                   ; 2文字分進める
+    add di, 4
     mov [cursor_pos], di
     call update_cursor
     pop di
@@ -55,69 +54,20 @@ get_key:
     cmp al, 13
     je .is_enter
 
-    cmp al, 'a'
-    je .auto_add
-    cmp al, 'x'
-    je .auto_xor
-    cmp al, 'n'
-    je .auto_not
-    cmp al, 's'
-    je .auto_shl
-    cmp al, 'r'
-    je .auto_shr
-
-    jmp .normal_input
-
-.auto_add:
-    mov si, cmd_add_str
-    call print_vram
-    mov bx, [buffer_ptr]
-    mov byte [SHELL_BUFFER_ADDR + bx], 'a'
-    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'd'
-    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'd'
-    add word [buffer_ptr], 3
+    ; --- ゲーム未開始時は 'g' のみ受け付ける ---
+    push ax
+    push ds
+    xor ax, ax
+    mov ds, ax
+    cmp byte [START_VAL], 0
+    pop ds
+    pop ax
+    jne .accept_key
+    cmp al, 'g'
+    je .accept_key
     jmp .pop_done
 
-.auto_xor:
-    mov si, cmd_xor_str
-    call print_vram
-    mov bx, [buffer_ptr]
-    mov byte [SHELL_BUFFER_ADDR + bx], 'x'
-    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'o'
-    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'r'
-    add word [buffer_ptr], 3
-    jmp .pop_done
-
-.auto_not:
-    mov si, cmd_not_str
-    call print_vram
-    mov bx, [buffer_ptr]
-    mov byte [SHELL_BUFFER_ADDR + bx], 'n'
-    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'o'
-    mov byte [SHELL_BUFFER_ADDR + bx + 2], 't'
-    add word [buffer_ptr], 3
-    jmp .pop_done
-
-.auto_shl:
-    mov si, cmd_shl_str
-    call print_vram
-    mov bx, [buffer_ptr]
-    mov byte [SHELL_BUFFER_ADDR + bx], 's'
-    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'h'
-    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'l'
-    add word [buffer_ptr], 3
-    jmp .pop_done
-
-.auto_shr:
-    mov si, cmd_shr_str
-    call print_vram
-    mov bx, [buffer_ptr]
-    mov byte [SHELL_BUFFER_ADDR + bx], 's'
-    mov byte [SHELL_BUFFER_ADDR + bx + 1], 'h'
-    mov byte [SHELL_BUFFER_ADDR + bx + 2], 'r'
-    add word [buffer_ptr], 3
-    jmp .pop_done
-
+.accept_key:
 .normal_input:
     mov [msg_key], al
     mov byte [msg_key+1], 0
@@ -148,7 +98,6 @@ get_key:
     jmp .pop_done
 
 .pop_done:
-
 .pop_done_simple:
     pop bx
 .get_key_exit:
@@ -159,70 +108,55 @@ check_command:
     push ds
     push es
 
-    ; -------------------------------------------------------
-    ; DS=0, ES=0 に統一する
-    ;
-    ; repe cmpsb は DS:SI と ES:DI を比較する。
-    ; SHELL_BUFFER_ADDR(0x9000) は物理アドレスそのままなので
-    ; DS=0 のとき DS:0x9000 = 物理0x9000 で正しく届く。
-    ; cmd_add_str 等は org 0x8000 のオフセット値なので
-    ; ES=0 のとき ES:offset = 物理offset で正しく届く。
-    ; -------------------------------------------------------
     xor ax, ax
     mov ds, ax
     mov es, ax
 
-    ; 空打ちチェック（Enter だけ押した場合）
+    ; 空打ちチェック
     mov si, SHELL_BUFFER_ADDR
     cmp byte [si], 0
-    je .show_result
+    je .done
 
 .try_g:
     mov si, SHELL_BUFFER_ADDR
     cmp byte [si], 'g'
-    jne .try_add
+    jne .try_xor
 
-    ; --- g コマンド: スタート値を設定してゴール値を生成 ---
     mov ax, [timer_count]
     mov [START_VAL], al
     mov [CURRENT_VAL], al
 
-    call generate_goal      ; GOAL_VAL を6ステップのランダム演算で生成
+    call generate_goal
 
-    mov byte [TRIES_LEFT], 5    ; 残り回数をリセット
+    mov byte [TRIES_LEFT], 5
 
     call clear_screen
 
-    mov al, [START_VAL]
+    ; ES=0xB800 をセットしてラベル+バイナリを描画
+    push es
+    mov ax, 0xB800
+    mov es, ax
+
     mov di, 0
+    mov si, lbl_start
+    call draw_label
+    mov al, [START_VAL]
     call draw_binary
-    mov al, [GOAL_VAL]
+
     mov di, 160
+    mov si, lbl_goal
+    call draw_label
+    mov al, [GOAL_VAL]
     call draw_binary
+
+    pop es
+
+    call draw_help
 
     mov word [cursor_pos], 320
     call update_cursor
     call draw_prompt
     jmp .done
-
-.try_add:
-    ; repe cmpsb: DS:SI(バッファ) と ES:DI(コマンド文字列) を比較
-    mov si, SHELL_BUFFER_ADDR
-    mov di, cmd_add_str
-    mov cx, 3
-    cld
-    repe cmpsb
-    jne .try_xor
-
-    inc byte [CURRENT_VAL]
-    mov al, [CURRENT_VAL]
-    cmp al, [GOAL_VAL]
-    je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
-    cmp byte [TRIES_LEFT], 0
-    je .game_over
-    jmp .show_result
 
 .try_xor:
     mov si, SHELL_BUFFER_ADDR
@@ -232,7 +166,8 @@ check_command:
     repe cmpsb
     jne .try_not
 
-    xor byte [CURRENT_VAL], 0x0F
+    mov al, [START_VAL]
+    xor [CURRENT_VAL], al
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
@@ -266,9 +201,45 @@ check_command:
     mov cx, 3
     cld
     repe cmpsb
-    jne .try_shr
+    jne .try_ror
 
     shl byte [CURRENT_VAL], 1
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
+    jmp .show_result
+
+.try_ror:
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_ror_str
+    mov cx, 3
+    cld
+    repe cmpsb
+    jne .try_rol
+
+    ror byte [CURRENT_VAL], 1
+    mov al, [CURRENT_VAL]
+    cmp al, [GOAL_VAL]
+    je .victory_early
+    dec byte [TRIES_LEFT]
+    call draw_tries
+    cmp byte [TRIES_LEFT], 0
+    je .game_over
+    jmp .show_result
+
+.try_rol:
+    mov si, SHELL_BUFFER_ADDR
+    mov di, cmd_rol_str
+    mov cx, 3
+    cld
+    repe cmpsb
+    jne .try_shr
+
+    rol byte [CURRENT_VAL], 1
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
@@ -284,7 +255,7 @@ check_command:
     mov cx, 3
     cld
     repe cmpsb
-    jne .try_cls
+    jne .try_exit
 
     shr byte [CURRENT_VAL], 1
     mov al, [CURRENT_VAL]
@@ -296,18 +267,8 @@ check_command:
     je .game_over
     jmp .show_result
 
-.try_cls:
-    mov si, SHELL_BUFFER_ADDR
-    mov di, cmd_cls
-    mov cx, 3
-    cld
-    repe cmpsb
-    jne .try_exit
-    cmp byte [si], 0
-    jne .try_exit
-    jmp .match_cls
-
 .try_exit:
+    ; "exit" → スタート画面に戻る（QEMUは終了しない）
     mov si, SHELL_BUFFER_ADDR
     mov di, cmd_exit
     mov cx, 4
@@ -316,12 +277,9 @@ check_command:
     jne .not_match
     cmp byte [si], 0
     jne .not_match
-    call qemu_exit
-    jmp .done
+    jmp .go_to_start
 
 .victory_early:
-    ; 最後の1手で正解した場合 — TRIES_LEFT を消費せずに勝利処理へ
-    ; show_result の描画だけ先に行ってから victory へ飛ぶ
     mov ax, 0xB800
     mov es, ax
     mov di, 320
@@ -332,14 +290,19 @@ check_command:
     add di, 2
     loop .clear_early_line
 
-    mov al, [CURRENT_VAL]
+    push es
+    mov ax, 0xB800
+    mov es, ax
     mov di, 480
+    mov si, lbl_current
+    call draw_label
+    mov al, [CURRENT_VAL]
     call draw_binary
+    pop es
 
     jmp .victory
 
 .show_result:
-    ; --- A. 入力行(3行目)を掃除 ---
     mov ax, 0xB800
     mov es, ax
     mov di, 320
@@ -350,28 +313,29 @@ check_command:
     add di, 2
     loop .clear_input_line
 
-    ; --- B. 演算結果(4行目)を描画 ---
-    mov al, [CURRENT_VAL]
+    push es
+    mov ax, 0xB800
+    mov es, ax
     mov di, 480
+    mov si, lbl_current
+    call draw_label
+    mov al, [CURRENT_VAL]
     call draw_binary
+    pop es
 
-    ; --- C. カーソルを3行目に戻してプロンプト表示 ---
     mov word [cursor_pos], 320
     call update_cursor
     call draw_prompt
 
-    ; --- D. バッファリセット ---
     mov word [buffer_ptr], 0
     mov byte [SHELL_BUFFER_ADDR], 0
 
-    ; --- E. 勝利判定 ---
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory
     jmp .done
 
 .victory:
-    ; 入力行(3行目)だけ掃除する（数値はそのまま残す）
     mov ax, 0xB800
     mov es, ax
     mov di, 320
@@ -382,7 +346,6 @@ check_command:
     add di, 2
     loop .clear_victory_line
 
-    ; 勝利メッセージを5行目に表示
     mov word [cursor_pos], 640
     call update_cursor
     mov si, msg_win
@@ -394,7 +357,6 @@ check_command:
     jmp .done
 
 .game_over:
-    ; 入力行(3行目)を掃除
     mov ax, 0xB800
     mov es, ax
     mov di, 320
@@ -405,7 +367,6 @@ check_command:
     add di, 2
     loop .clear_gameover_line
 
-    ; Game Over メッセージを5行目に表示
     mov word [cursor_pos], 640
     call update_cursor
     mov si, msg_gameover
@@ -416,7 +377,11 @@ check_command:
     mov byte [SHELL_BUFFER_ADDR], 0
     jmp .done
 
-.match_cls:
+.go_to_start:
+    ; スタート画面に戻る（exit コマンド / cls の共通処理）
+    mov byte [START_VAL], 0
+    mov word [buffer_ptr], 0
+    mov byte [SHELL_BUFFER_ADDR], 0
     call clear_screen
     mov si, msg_title
     call print_vram
@@ -426,11 +391,10 @@ check_command:
 
 .not_match:
     cmp byte [START_VAL], 0
-    je .standard_unknown
+    je .done
     jmp .reset_input_only
 
 .reset_input_only:
-    ; ESを0xB800に設定してからVRAMに書き込む
     mov ax, 0xB800
     mov es, ax
     mov di, 320
@@ -446,36 +410,93 @@ check_command:
     mov word [buffer_ptr], 0
     jmp .done
 
-.standard_unknown:
-    mov si, msg_unknown
-    call print_vram
-    mov si, msg_newline
-    call print_vram
-
 .done:
     pop es
     pop ds
     popa
     ret
 
-qemu_exit:
-    mov ax, 0x00
-    mov dx, 0xf4
-    out dx, ax
-    ret
-
-cmd_hello    db "hello", 0
-msg_fine     db "Fine!", 0
-cmd_cls      db "cls", 0
-msg_unknown  db "Unknown", 0
-msg_newline  db 13, 10, 0
-msg_prompt   db "> ", 0
 cmd_exit     db "exit", 0
 
-cmd_add_str  db "add", 0
 cmd_xor_str  db "xor", 0
 cmd_not_str  db "not", 0
 cmd_shl_str  db "shl", 0
 cmd_shr_str  db "shr", 0
+cmd_ror_str  db "ror", 0
+cmd_rol_str  db "rol", 0
 msg_win      db "=== YOU WIN! ===", 13, 10, "Press 'g' to start again.", 0
 msg_gameover db "=== GAME OVER ===", 13, 10, "Press 'g' to try again.", 0
+
+; --- コマンド説明を画面下部に描画 ---
+; 行6(di=800)から固定表示。ゲーム開始時に一度だけ呼ぶ。
+draw_help:
+    pusha
+    push ds
+    push es
+    xor ax, ax
+    mov ds, ax
+    mov ax, 0xB800
+    mov es, ax
+
+    ; 行8: タイトル行（2行分下げてWIN/GAMEOVERと被らないように）
+    mov di, 1120
+    mov si, msg_help_title
+    call .write_line
+
+    ; 行9: xor / not
+    mov di, 1280
+    mov si, msg_help_xor
+    call .write_line
+
+    ; 行10: shl / shr
+    mov di, 1440
+    mov si, msg_help_shift
+    call .write_line
+
+    ; 行11: ror / rol
+    mov di, 1600
+    mov si, msg_help_rotate
+    call .write_line
+
+    ; 行12: exit / g(giveup)
+    mov di, 1760
+    mov si, msg_help_misc
+    call .write_line
+
+    ; 行13: 空行（空けて視覚的に分離）
+
+    ; 行14: ゲーム説明
+    mov di, 2080
+    mov si, msg_help_goal
+    call .write_line
+
+    pop es
+    pop ds
+    popa
+    ret
+
+.write_line:
+    ; SI から NULL までを ES:DI に白色(0x07)で書き込む
+    push ax
+    push si
+    push di
+.wl_loop:
+    lodsb
+    cmp al, 0
+    je .wl_done
+    mov [es:di], al
+    mov byte [es:di+1], 0x07
+    add di, 2
+    jmp .wl_loop
+.wl_done:
+    pop di
+    pop si
+    pop ax
+    ret
+
+msg_help_title  db "--- Commands ---", 0
+msg_help_xor    db "xor: XOR with start value  |  not: Bitwise NOT", 0
+msg_help_shift  db "shl: Shift left (x2)       |  shr: Shift right (div2)", 0
+msg_help_rotate db "rol: Rotate left           |  ror: Rotate right", 0
+msg_help_misc   db "g: New game / Give up      |  exit: Return to title", 0
+msg_help_goal   db "Goal: Transform start value into goal value within 5 moves!", 0

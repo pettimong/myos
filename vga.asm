@@ -251,15 +251,26 @@ do_backspace:
     pop es
     ret
 
-print_prompt:
-    push ds       ; 保存
-    push si
+; print_prompt は削除（msg_prompt を keyboard.asm から除去したため）
+
+; --- ラベル文字列をVRAMに書き込む ---
+; 入力: SI = 文字列ポインタ, DI = VRAMオフセット
+; 出力: DI = 書き込み後のオフセット（draw_binaryにそのまま渡せる）
+; 注意: ES=0xB800 にセットしてから呼ぶこと
+draw_label:
     push ax
-    mov ax, cs    ; 現在のコードセグメント（データの場所）を
-    mov ds, ax    ; DSにセットする
-    mov si, msg_prompt
-    call print_vram
+.dl_loop:
+    lodsb
+    cmp al, 0
+    je .dl_done
+    mov [es:di], al
+    mov byte [es:di+1], 0x07
+    add di, 2
+    jmp .dl_loop
+.dl_done:
     pop ax
-    pop si
-    pop ds        ; 復元
     ret
+
+lbl_start   db "start:   ", 0
+lbl_goal    db "goal:    ", 0
+lbl_current db "current: ", 0
