@@ -1,7 +1,3 @@
-# you asked
-
-概ねβ版が出来上がりました（α版かな）。これについてのREADMEを作って欲しい。英語で作りたいが、参考に和訳文も出してほしい。
-コンセプトとしては
 # Binary Puzzle OS (myos branch)
 
 This project is a standalone mini-game OS developed as a branch of the **[myos](https://github.com/pettimong/myos)** project. It serves as a practical implementation of low-level system concepts and future feature ideas explored in the main kernel development.
