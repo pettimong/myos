@@ -82,13 +82,18 @@ CURRENT_VAL  db 0
 GOAL_VAL     db 0
 TRIES_LEFT   db 5       ; 残り回答数（初期値5）
 buffer_ptr   dw 0
-lcg_state    dw 0       ; LCG乱数の状態
+lcg_state    dw 0       ; LCG乱数の状態（generate_goal用）
 
 ; --- ゴール値生成関数 ---
-; スタート値から add/xor/not/shl/shr を6回ランダムに適用してゴール値を作る
-; 禁止パターン: add→add, xor→xor, not→not, shl→shl, shr→shr, add→not, not→add
+; プレイヤーが使える命令のみを使ってゴール値を作る
+; 使用命令: xor(START_VALと), not, shl, shr, ror, rol の6種
+; 演算コード: 0=xor, 1=not, 2=shl, 3=shr, 4=ror, 5=rol
 ;
-; 演算コード: 0=add, 1=xor, 2=not, 3=shl, 4=shr
+; 禁止パターン（同じ演算の連続 + 意味のない逆操作の連続）:
+;   同じ演算の連続禁止（全6種）
+;   shl→shr, shr→shl（打ち消し合い）禁止
+;   ror→rol, rol→ror（打ち消し合い）禁止
+;   not→not（打ち消し合い）は同じ演算連続禁止でカバー済み
 generate_goal:
     pusha
     push ds
@@ -101,7 +106,7 @@ generate_goal:
 
     mov al, [START_VAL]     ; AL = 現在の計算値
     mov cl, 0xFF            ; CL = 前の演算コード（0xFF=無効）
-    mov ch, 6               ; CH = 残りステップ数
+    mov ch, 4               ; CH = 残りステップ数（4ステップ→5手以内で解ける）
 
 .step_loop:
     cmp ch, 0
@@ -114,50 +119,66 @@ generate_goal:
     mul bx                  ; DX:AX = ax * 25173
     add ax, 13849
     mov [lcg_state], ax
-    ; AX mod 5 → BL = 演算コード (0=add, 1=xor, 2=not, 3=shl, 4=shr)
+    ; AX mod 6 → BL = 演算コード (0=xor, 1=not, 2=shl, 3=shr, 4=ror, 5=rol)
     xor dx, dx
-    mov bx, 5
-    div bx                  ; AX=商, DX=余り(0〜4)
+    mov bx, 6
+    div bx                  ; AX=商, DX=余り(0〜5)
     mov bl, dl              ; BL = 今回の演算コード
 
     ; --- 禁止チェック ---
-    ; 同じ演算の連続禁止（全5種）
+    ; 同じ演算の連続禁止
     cmp bl, cl
     je .pick_op
 
-    ; add→not(0→2), not→add(2→0) 禁止
-    cmp cl, 0
-    jne .check_not_add
+    ; shl(2)→shr(3) 禁止（打ち消し）
+    cmp cl, 2
+    jne .check_shr_shl
+    cmp bl, 3
+    je .pick_op
+.check_shr_shl:
+    ; shr(3)→shl(2) 禁止（打ち消し）
+    cmp cl, 3
+    jne .check_ror_rol
     cmp bl, 2
     je .pick_op
-.check_not_add:
-    cmp cl, 2
+.check_ror_rol:
+    ; ror(4)→rol(5) 禁止（打ち消し）
+    cmp cl, 4
+    jne .check_rol_ror
+    cmp bl, 5
+    je .pick_op
+.check_rol_ror:
+    ; rol(5)→ror(4) 禁止（打ち消し）
+    cmp cl, 5
     jne .op_ok
-    cmp bl, 0
+    cmp bl, 4
     je .pick_op
 
 .op_ok:
     mov cl, bl              ; prev_op を更新
 
-    ; --- 演算実行 (0=add, 1=xor, 2=not, 3=shl, 4=shr) ---
+    ; --- 演算実行 ---
+    ; 0=xor(START_VALと), 1=not, 2=shl, 3=shr, 4=ror, 5=rol
     cmp bl, 0
-    je .do_add
-    cmp bl, 1
     je .do_xor
-    cmp bl, 2
+    cmp bl, 1
     je .do_not
-    cmp bl, 3
+    cmp bl, 2
     je .do_shl
-    ; bl=4: shr
-    shr al, 1
-    dec ch
-    jmp .step_loop
-.do_add:
-    inc al
+    cmp bl, 3
+    je .do_shr
+    cmp bl, 4
+    je .do_ror
+    ; bl=5: rol
+    rol al, 1
     dec ch
     jmp .step_loop
 .do_xor:
-    xor al, 0x0F
+    ; プレイヤーのxorコマンドと同じ: START_VALとXOR
+    push bx
+    mov bl, [START_VAL]
+    xor al, bl
+    pop bx
     dec ch
     jmp .step_loop
 .do_not:
@@ -166,6 +187,14 @@ generate_goal:
     jmp .step_loop
 .do_shl:
     shl al, 1
+    dec ch
+    jmp .step_loop
+.do_shr:
+    shr al, 1
+    dec ch
+    jmp .step_loop
+.do_ror:
+    ror al, 1
     dec ch
     jmp .step_loop
 
