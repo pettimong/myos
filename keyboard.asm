@@ -168,11 +168,11 @@ check_command:
 
     mov al, [START_VAL]
     xor [CURRENT_VAL], al
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -186,11 +186,11 @@ check_command:
     jne .try_shl
 
     not byte [CURRENT_VAL]
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -204,11 +204,11 @@ check_command:
     jne .try_ror
 
     shl byte [CURRENT_VAL], 1
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -222,11 +222,11 @@ check_command:
     jne .try_rol
 
     ror byte [CURRENT_VAL], 1
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -240,11 +240,11 @@ check_command:
     jne .try_shr
 
     rol byte [CURRENT_VAL], 1
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -258,11 +258,11 @@ check_command:
     jne .try_exit
 
     shr byte [CURRENT_VAL], 1
+    dec byte [TRIES_LEFT]
+    call draw_tries
     mov al, [CURRENT_VAL]
     cmp al, [GOAL_VAL]
     je .victory_early
-    dec byte [TRIES_LEFT]
-    call draw_tries
     cmp byte [TRIES_LEFT], 0
     je .game_over
     jmp .show_result
@@ -357,6 +357,17 @@ check_command:
     jmp .done
 
 .game_over:
+    ; 5回目の演算結果をcurrent行に反映してからGAMEOVER表示
+    push es
+    mov ax, 0xB800
+    mov es, ax
+    mov di, 480
+    mov si, lbl_current
+    call draw_label
+    mov al, [CURRENT_VAL]
+    call draw_binary
+    pop es
+
     mov ax, 0xB800
     mov es, ax
     mov di, 320
