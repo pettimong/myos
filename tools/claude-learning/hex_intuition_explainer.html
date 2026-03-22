@@ -1,0 +1,211 @@
+
+<style>
+*{box-sizing:border-box}
+.tab-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.tab{font-size:12px;padding:5px 14px;border-radius:6px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;color:var(--color-text-secondary);background:var(--color-background-secondary);}
+.tab.active{background:#E6F1FB;border-color:#85B7EB;color:#185FA5;font-weight:500;}
+.page{display:none;} .page.active{display:block;}
+
+/* bit display */
+.bit-row{display:flex;gap:3px;justify-content:center;margin:10px 0;}
+.bit{width:34px;height:34px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:14px;font-weight:500;border:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:background .15s,color .15s;user-select:none;}
+.bit.on{background:#E6F1FB;border-color:#85B7EB;color:#185FA5;}
+.bit.off{background:var(--color-background-secondary);color:var(--color-text-tertiary);}
+.nibble-sep{width:8px;}
+.nibble-label{display:flex;gap:3px;justify-content:center;margin-bottom:2px;}
+.nl{width:34px;text-align:center;font-size:10px;color:var(--color-text-tertiary);}
+.ns{width:8px;}
+.result-row{display:flex;justify-content:center;gap:24px;margin:12px 0;flex-wrap:wrap;}
+.result-box{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:8px 16px;text-align:center;min-width:90px;}
+.result-label{font-size:10px;color:var(--color-text-tertiary);margin-bottom:2px;}
+.result-val{font-family:var(--font-mono);font-size:18px;font-weight:500;color:var(--color-text-primary);}
+.result-val.hex{color:#185FA5;}
+.result-val.bin{color:#3B6D11;font-size:13px;}
+
+/* hex map */
+.hex-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:8px 0;}
+.hex-cell{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:5px;padding:6px 4px;text-align:center;}
+.hc-hex{font-family:var(--font-mono);font-size:15px;font-weight:500;color:#185FA5;}
+.hc-dec{font-size:11px;color:var(--color-text-secondary);}
+.hc-bits{font-family:var(--font-mono);font-size:10px;color:#3B6D11;letter-spacing:1px;}
+
+/* common patterns */
+.pat-list{display:flex;flex-direction:column;gap:6px;margin:8px 0;}
+.pat-row{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center;background:var(--color-background-secondary);border-radius:6px;padding:7px 10px;border:0.5px solid var(--color-border-tertiary);}
+.pat-hex{font-family:var(--font-mono);font-size:13px;font-weight:500;color:#185FA5;}
+.pat-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.5;}
+
+/* quiz */
+.quiz-box{background:var(--color-background-secondary);border-radius:8px;padding:14px;margin:8px 0;border:0.5px solid var(--color-border-tertiary);}
+.quiz-q{font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px;}
+.quiz-opts{display:flex;gap:6px;flex-wrap:wrap;}
+.quiz-opt{font-family:var(--font-mono);font-size:13px;padding:6px 14px;border-radius:6px;border:0.5px solid var(--color-border-tertiary);cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);}
+.quiz-opt:hover{border-color:var(--color-border-primary);}
+.quiz-opt.correct{background:#EAF3DE;border-color:#97C459;color:#3B6D11;}
+.quiz-opt.wrong{background:#FCEBEB;border-color:#F09595;color:#A32D2D;}
+.quiz-result{font-size:12px;margin-top:8px;min-height:18px;color:var(--color-text-secondary);}
+.quiz-nav{display:flex;gap:8px;margin-top:10px;align-items:center;}
+.progress{font-size:12px;color:var(--color-text-tertiary);}
+</style>
+
+<div style="padding:.5rem 0;">
+<div class="tab-row">
+  <div class="tab active" onclick="switchTab(0)">ビット操作で体感</div>
+  <div class="tab" onclick="switchTab(1)">0〜F の対応表</div>
+  <div class="tab" onclick="switchTab(2)">よく出るパターン</div>
+  <div class="tab" onclick="switchTab(3)">読む練習</div>
+</div>
+
+<!-- PAGE 0: bit manipulator -->
+<div class="page active" id="page0">
+  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:6px;">ビットをクリックして ON/OFF → 16進数がどう変わるか体感する</p>
+  <div class="nibble-label">
+    <div class="nl">15</div><div class="nl">14</div><div class="nl">13</div><div class="nl">12</div>
+    <div class="ns"></div>
+    <div class="nl">11</div><div class="nl">10</div><div class="nl">9</div><div class="nl">8</div>
+    <div class="ns"></div>
+    <div class="nl">7</div><div class="nl">6</div><div class="nl">5</div><div class="nl">4</div>
+    <div class="ns"></div>
+    <div class="nl">3</div><div class="nl">2</div><div class="nl">1</div><div class="nl">0</div>
+  </div>
+  <div class="bit-row" id="bits"></div>
+  <p style="font-size:11px;color:var(--color-text-tertiary);text-align:center;margin:2px 0 6px;">
+    ← 上位バイト (AH) → &nbsp;&nbsp;&nbsp; ← 下位バイト (AL) →
+  </p>
+  <div class="result-row">
+    <div class="result-box"><div class="result-label">16進 (HEX)</div><div class="result-val hex" id="res-hex">0x0000</div></div>
+    <div class="result-box"><div class="result-label">10進 (DEC)</div><div class="result-val" id="res-dec">0</div></div>
+    <div class="result-box"><div class="result-label">2進 (BIN)</div><div class="result-val bin" id="res-bin">0000 0000 0000 0000</div></div>
+  </div>
+  <p style="font-size:11px;color:var(--color-text-tertiary);text-align:center;">
+    ポイント: 16進1桁 = ちょうど4ビット。ニブル(nibble)と呼ぶ。
+  </p>
+</div>
+
+<!-- PAGE 1: hex table -->
+<div class="page" id="page1">
+  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">16進1桁（0〜F）= 4bitの全パターン。これだけ覚えれば変換不要。</p>
+  <div class="hex-grid" id="hextable"></div>
+  <p style="font-size:11px;color:var(--color-text-tertiary);margin-top:8px;">
+    コツ: 8(=1000)と4(=0100)と2(=0010)と1(=0001)の組み合わせで読む。<br>
+    例: E = 8+4+2 = 1110、A = 8+2 = 1010
+  </p>
+</div>
+
+<!-- PAGE 2: common patterns -->
+<div class="page" id="page2">
+  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">アセンブリでよく出る16進数のパターン。意味で覚える。</p>
+  <div class="pat-list">
+    <div class="pat-row"><span class="pat-hex">0x00</span><span class="pat-desc">ゼロ / NUL文字 / 初期値</span></div>
+    <div class="pat-row"><span class="pat-hex">0xFF</span><span class="pat-desc">8bitの最大値(255) / 全ビットON / マスク全体</span></div>
+    <div class="pat-row"><span class="pat-hex">0x0F</span><span class="pat-desc">下位4bit(ニブル)だけON → AND 0x0F で下位ニブル取り出し</span></div>
+    <div class="pat-row"><span class="pat-hex">0xF0</span><span class="pat-desc">上位4bitだけON → AND 0xF0 で上位ニブル取り出し</span></div>
+    <div class="pat-row"><span class="pat-hex">0x7C00</span><span class="pat-desc">ブートローダのロードアドレス（BIOSの決まり）</span></div>
+    <div class="pat-row"><span class="pat-hex">0xAA55</span><span class="pat-desc">ブートシグネチャ（512バイト目の魔法の数字）</span></div>
+    <div class="pat-row"><span class="pat-hex">0x0E</span><span class="pat-desc">BIOS INT 0x10 のテレタイプ出力サービス番号</span></div>
+    <div class="pat-row"><span class="pat-hex">0x10</span><span class="pat-desc">10進の16。INT 0x10 = ビデオサービス</span></div>
+    <div class="pat-row"><span class="pat-hex">0x20</span><span class="pat-desc">10進の32。スペース文字のASCIIコード / PICへのEOI</span></div>
+    <div class="pat-row"><span class="pat-hex">0x41〜0x5A</span><span class="pat-desc">大文字A〜Z のASCIIコード（0x41='A', 0x5A='Z'）</span></div>
+    <div class="pat-row"><span class="pat-hex">0x61〜0x7A</span><span class="pat-desc">小文字a〜z（大文字+0x20でセット変換できる）</span></div>
+    <div class="pat-row"><span class="pat-hex">0x30〜0x39</span><span class="pat-desc">数字'0'〜'9' のASCII（0x30='0', AND 0x0F で数値に変換）</span></div>
+  </div>
+</div>
+
+<!-- PAGE 3: quiz -->
+<div class="page" id="page3">
+  <p style="font-size:12px;color:var(--color-text-secondary);margin-bottom:8px;">直感を鍛える読む練習。変換せず「見て即わかる」を目指す。</p>
+  <div class="quiz-box">
+    <div class="quiz-q" id="qq"></div>
+    <div class="quiz-opts" id="qopts"></div>
+    <div class="quiz-result" id="qres"></div>
+  </div>
+  <div class="quiz-nav">
+    <button onclick="nextQuiz()">次の問題 →</button>
+    <span class="progress" id="qprog"></span>
+  </div>
+</div>
+
+</div>
+
+<script>
+// --- BIT PAGE ---
+const bitState = new Array(16).fill(0);
+function buildBits(){
+  const c = document.getElementById('bits');
+  c.innerHTML='';
+  [15,14,13,12,'sep',11,10,9,8,'sep',7,6,5,4,'sep',3,2,1,0].forEach(i=>{
+    if(i==='sep'){const s=document.createElement('div');s.className='nibble-sep';c.appendChild(s);return;}
+    const d=document.createElement('div');
+    d.className='bit '+(bitState[i]?'on':'off');
+    d.textContent=bitState[i];
+    d.onclick=()=>{bitState[i]^=1;buildBits();updateResults();};
+    c.appendChild(d);
+  });
+}
+function updateResults(){
+  let v=0;
+  for(let i=0;i<16;i++) v|=(bitState[i]<<i);
+  document.getElementById('res-hex').textContent='0x'+v.toString(16).toUpperCase().padStart(4,'0');
+  document.getElementById('res-dec').textContent=v;
+  const b=v.toString(2).padStart(16,'0');
+  document.getElementById('res-bin').textContent=b.slice(0,4)+' '+b.slice(4,8)+' '+b.slice(8,12)+' '+b.slice(12);
+}
+buildBits(); updateResults();
+
+// --- HEX TABLE ---
+const ht = document.getElementById('hextable');
+for(let i=0;i<16;i++){
+  const bits=i.toString(2).padStart(4,'0');
+  const hex=i.toString(16).toUpperCase();
+  ht.innerHTML+=`<div class="hex-cell">
+    <div class="hc-hex">${hex}</div>
+    <div class="hc-dec">${i}</div>
+    <div class="hc-bits">${bits}</div>
+  </div>`;
+}
+
+// --- QUIZ ---
+const quizzes = [
+  {q:'0xFF は何ビットすべてON？', opts:['4bit','8bit','16bit','12bit'], ans:1, hint:'F=1111 が2個 → 8bit全部ON'},
+  {q:'0x0F をビットで書くと？', opts:['1111 0000','0000 1111','1111 1111','0101 0101'], ans:1, hint:'0=0000, F=1111'},
+  {q:'0xAA をビットで書くと？', opts:['1010 1010','1111 1010','1010 0000','0101 0101'], ans:0, hint:'A=1010, A=1010 → 交互パターン'},
+  {q:"'A' のASCIIコード（16進）は？", opts:['0x61','0x41','0x01','0x21'], ans:1, hint:'大文字Aは0x41。小文字aは0x61（+0x20）'},
+  {q:'0x10 は10進でいくつ？', opts:['10','16','32','8'], ans:1, hint:'16進の10 = 1×16+0 = 10進の16'},
+  {q:'AND 0x0F の効果は？', opts:['全ビット消す','上位4bitを消す','下位4bitを消す','全ビット立てる'], ans:1, hint:'0x0F=0000 1111 → AND すると上位4bitが0になる'},
+  {q:'0xFF + 0x01 の結果は？（8bit）', opts:['0x100','0x00','0xFE','0x01'], ans:1, hint:'8bitでは0xFF+1はオーバーフローして0x00に戻る'},
+  {q:'0x41 | 0x20 の結果は？', opts:['0x41','0x61','0x21','0x01'], ans:1, hint:'OR 0x20 でbit5をON → 大文字→小文字変換'},
+];
+let qIdx=0, qScore=0, qAnswered=false;
+function showQuiz(){
+  const q=quizzes[qIdx%quizzes.length];
+  document.getElementById('qq').textContent=q.q;
+  document.getElementById('qres').textContent='';
+  qAnswered=false;
+  const opts=document.getElementById('qopts');
+  opts.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='quiz-opt'; b.textContent=o;
+    b.onclick=()=>{
+      if(qAnswered)return;
+      qAnswered=true;
+      document.querySelectorAll('.quiz-opt').forEach((el,j)=>{
+        if(j===q.ans) el.classList.add('correct');
+        else if(j===i) el.classList.add('wrong');
+      });
+      document.getElementById('qres').textContent=(i===q.ans?'正解！ ':'不正解… ')+q.hint;
+      if(i===q.ans) qScore++;
+      document.getElementById('qprog').textContent=`${qScore}/${qIdx+1}問正解`;
+    };
+    opts.appendChild(b);
+  });
+}
+function nextQuiz(){ qIdx++; showQuiz(); }
+showQuiz();
+
+// --- TABS ---
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  document.querySelectorAll('.page').forEach((p,i)=>p.classList.toggle('active',i===n));
+}
+</script>

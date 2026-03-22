@@ -1,0 +1,281 @@
+
+<style>
+*{box-sizing:border-box}
+.sim{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:12px;padding:.75rem 0;}
+.panel{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px;}
+.panel-title{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--color-text-tertiary);margin-bottom:10px;}
+.reg-row{display:grid;grid-template-columns:32px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px;}
+.reg-label{font-family:var(--font-mono);font-size:12px;font-weight:500;color:#185FA5;}
+.reg-bar-wrap{height:18px;background:var(--color-background-secondary);border-radius:4px;overflow:hidden;position:relative;}
+.reg-bar{height:100%;border-radius:4px;transition:width .35s ease,background .35s;}
+.reg-val{font-family:var(--font-mono);font-size:12px;color:var(--color-text-primary);text-align:right;}
+.reg-val.changed{color:#854F0B;font-weight:500;}
+.flags-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;}
+.flag{font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:4px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-tertiary);}
+.flag.on{background:#E6F1FB;border-color:#85B7EB;color:#185FA5;font-weight:500;}
+.flag.changed{background:#FAEEDA;border-color:#EF9F27;color:#854F0B;}
+
+.instr-area{margin-bottom:10px;}
+.instr-area textarea{width:100%;height:110px;font-family:var(--font-mono);font-size:12px;resize:vertical;padding:8px 10px;border-radius:6px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-primary);line-height:1.7;}
+.btn-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.history{font-family:var(--font-mono);font-size:11px;background:var(--color-background-secondary);border-radius:6px;padding:8px 10px;height:160px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);line-height:1.8;}
+.hist-line{display:flex;gap:8px;align-items:baseline;}
+.hist-step{color:var(--color-text-tertiary);min-width:22px;}
+.hist-instr{color:#185FA5;min-width:130px;}
+.hist-change{color:#854F0B;}
+.hist-nochange{color:var(--color-text-tertiary);}
+.error-msg{color:var(--color-text-danger);font-size:12px;margin-top:6px;min-height:18px;}
+.cur-instr{background:#E6F1FB;border-radius:4px;padding:1px 4px;display:inline-block;margin-bottom:8px;font-family:var(--font-mono);font-size:12px;color:#185FA5;}
+.presets{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;}
+.preset-btn{font-size:11px;padding:3px 8px;border-radius:4px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);cursor:pointer;color:var(--color-text-secondary);}
+.preset-btn:hover{background:var(--color-background-primary);border-color:var(--color-border-primary);}
+</style>
+
+<div class="sim">
+<div class="panel">
+  <div class="panel-title">レジスタ（現在値）</div>
+  <div id="regs"></div>
+  <div style="margin-top:10px;">
+    <div class="panel-title">FLAGSレジスタ</div>
+    <div class="flags-row" id="flags"></div>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:var(--color-text-tertiary);">
+    <span style="display:inline-block;width:8px;height:8px;background:#E6F1FB;border:0.5px solid #85B7EB;border-radius:2px;"></span> 変化あり（今ステップ）
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">命令を入力して実行</div>
+  <div class="presets" id="presets"></div>
+  <div class="instr-area">
+    <textarea id="code" spellcheck="false" placeholder="例:
+mov ax, 0x1234
+mov bx, ax
+add ax, bx
+push ax
+pop cx"></textarea>
+  </div>
+  <div class="btn-row">
+    <button onclick="stepOnce()" id="btn-step">▶ 1ステップ</button>
+    <button onclick="runAll()">⏩ 全実行</button>
+    <button onclick="reset()">↺ リセット</button>
+  </div>
+  <div class="error-msg" id="errmsg"></div>
+  <div class="panel-title" style="margin-top:4px;">実行履歴</div>
+  <div class="history" id="history"><span style="color:var(--color-text-tertiary);">実行するとここに変化が記録されます</span></div>
+</div>
+</div>
+
+<script>
+const REGS = ['ax','bx','cx','dx','si','di','sp','bp','ip'];
+const FLAGS_DEF = ['ZF','CF','SF','OF','IF'];
+
+let state = {regs:{ax:0,bx:0,cx:0,dx:0,si:0,di:0,sp:0xFFFF,bp:0,ip:0}, flags:{ZF:0,CF:0,SF:0,OF:0,IF:1}};
+let prevState = null;
+let instructions = [];
+let pc = 0;
+let history = [];
+let stack = [];
+
+const presetSets = [
+  {label:'MOV基本', code:'mov ax, 0x1234\nmov bx, ax\nmov cx, 0x00FF'},
+  {label:'加減算', code:'mov ax, 100\nmov bx, 200\nadd ax, bx\nsub ax, 50'},
+  {label:'ループ(CX)', code:'mov cx, 5\nmov ax, 0\nadd ax, 1\ndec cx\njnz -2'},
+  {label:'スタック', code:'mov ax, 0xAAAA\nmov bx, 0xBBBB\npush ax\npush bx\npop cx\npop dx'},
+  {label:'フラグ確認', code:'mov ax, 0\ncmp ax, 0\nmov ax, 5\ncmp ax, 3\ncmp ax, 5'},
+];
+
+function cloneState(s){return{regs:{...s.regs},flags:{...s.flags}};}
+
+function updateUI(changed){
+  const MAX = 0xFFFF;
+  let html = '';
+  REGS.forEach(r=>{
+    const v = state.regs[r];
+    const pv = prevState ? prevState.regs[r] : v;
+    const diff = v !== pv;
+    const pct = Math.round(v/MAX*100);
+    const barColor = diff ? '#378ADD' : '#B5D4F4';
+    html += `<div class="reg-row">
+      <span class="reg-label">${r.toUpperCase()}</span>
+      <div class="reg-bar-wrap"><div class="reg-bar" style="width:${pct}%;background:${barColor}"></div></div>
+      <span class="reg-val ${diff?'changed':''}">${'0x'+v.toString(16).toUpperCase().padStart(4,'0')}</span>
+    </div>`;
+  });
+  document.getElementById('regs').innerHTML = html;
+
+  let fhtml = '';
+  FLAGS_DEF.forEach(f=>{
+    const v = state.flags[f];
+    const pv = prevState ? prevState.flags[f] : v;
+    const diff = v !== pv;
+    fhtml += `<span class="flag ${v?'on':''} ${diff?'changed':''}">${f}=${v}</span>`;
+  });
+  document.getElementById('flags').innerHTML = fhtml;
+}
+
+function parseImm(s, regs){
+  s = s.trim();
+  if(regs && regs[s] !== undefined) return regs[s];
+  if(s.startsWith('0x')||s.startsWith('0X')) return parseInt(s,16)&0xFFFF;
+  const n = parseInt(s,10);
+  if(!isNaN(n)) return ((n%65536)+65536)%65536;
+  return null;
+}
+
+function getReg(s){ return state.regs[s.toLowerCase()] ?? null; }
+function setReg(s,v){ state.regs[s.toLowerCase()] = ((v%65536)+65536)%65536; }
+function isReg(s){ return ['ax','bx','cx','dx','si','di','sp','bp'].includes(s.toLowerCase()); }
+
+function updateFlags(result, a, b, op){
+  const r16 = ((result%65536)+65536)%65536;
+  state.flags.ZF = r16===0?1:0;
+  state.flags.SF = (r16>>15)&1;
+  if(op==='add'){state.flags.CF=(result>0xFFFF)?1:0; state.flags.OF=((a>>15)===(b>>15)&&(r16>>15)!==(a>>15))?1:0;}
+  if(op==='sub'||op==='cmp'){state.flags.CF=(a<b)?1:0; state.flags.OF=((a>>15)!==(b>>15)&&(r16>>15)===(b>>15))?1:0;}
+}
+
+function execLine(line){
+  line = line.trim();
+  if(!line||line.startsWith(';')) return {ok:true,change:'(コメント)'};
+
+  const toks = line.replace(/,/g,' ').split(/\s+/).filter(Boolean);
+  const op = toks[0].toLowerCase();
+  const a = toks[1]?.toLowerCase();
+  const b = toks[2]?.toLowerCase();
+
+  let change = '';
+
+  if(op==='mov'){
+    const val = isReg(b) ? getReg(b) : parseImm(b);
+    if(val===null) return {ok:false,error:`値が不明: ${b}`};
+    const old = getReg(a);
+    setReg(a,val);
+    change = `${a.toUpperCase()}: 0x${old.toString(16).padStart(4,'0').toUpperCase()} → 0x${val.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='add'){
+    const va = getReg(a), vb = isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    const res = va+vb; updateFlags(res,va,vb,'add');
+    setReg(a,res);
+    change = `${a.toUpperCase()}: 0x${va.toString(16).padStart(4,'0').toUpperCase()} + 0x${vb.toString(16).padStart(4,'0').toUpperCase()} = 0x${(res&0xFFFF).toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='sub'){
+    const va = getReg(a), vb = isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    const res = va-vb; updateFlags(res,va,vb,'sub');
+    setReg(a,res);
+    change = `${a.toUpperCase()}: 0x${va.toString(16).padStart(4,'0').toUpperCase()} - 0x${vb.toString(16).padStart(4,'0').toUpperCase()} = 0x${(res&0xFFFF).toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='inc'){
+    const v = getReg(a); const res=v+1; updateFlags(res,v,1,'add');
+    setReg(a,res); change=`${a.toUpperCase()}: ${v} → ${res&0xFFFF}`;
+  } else if(op==='dec'){
+    const v = getReg(a); const res=v-1; updateFlags(res,v,1,'sub');
+    setReg(a,res); change=`${a.toUpperCase()}: ${v} → ${(res+65536)%65536}`;
+  } else if(op==='cmp'){
+    const va=getReg(a),vb=isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    updateFlags(va-vb,va,vb,'cmp');
+    change=`CMP: ${a.toUpperCase()}(${va}) vs ${vb} → ZF=${state.flags.ZF} CF=${state.flags.CF}`;
+  } else if(op==='and'){
+    const va=getReg(a),vb=isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    const res=va&vb; state.flags.ZF=res===0?1:0; state.flags.CF=0; state.flags.OF=0;
+    setReg(a,res); change=`${a.toUpperCase()}: AND → 0x${res.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='or'){
+    const va=getReg(a),vb=isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    const res=va|vb; state.flags.ZF=res===0?1:0; state.flags.CF=0; state.flags.OF=0;
+    setReg(a,res); change=`${a.toUpperCase()}: OR → 0x${res.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='xor'){
+    const va=getReg(a),vb=isReg(b)?getReg(b):parseImm(b);
+    if(vb===null) return {ok:false,error:`値が不明: ${b}`};
+    const res=va^vb; state.flags.ZF=res===0?1:0; state.flags.CF=0; state.flags.OF=0;
+    setReg(a,res); change=`${a.toUpperCase()}: XOR → 0x${res.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='shl'||op==='sal'){
+    const va=getReg(a), cnt=parseImm(b)??1;
+    const res=(va<<cnt)&0xFFFF; state.flags.CF=(va>>(16-cnt))&1; state.flags.ZF=res===0?1:0;
+    setReg(a,res); change=`${a.toUpperCase()}: SHL ${cnt} → 0x${res.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='shr'){
+    const va=getReg(a), cnt=parseImm(b)??1;
+    const res=(va>>cnt)&0xFFFF; state.flags.CF=(va>>(cnt-1))&1; state.flags.ZF=res===0?1:0;
+    setReg(a,res); change=`${a.toUpperCase()}: SHR ${cnt} → 0x${res.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='push'){
+    const val=isReg(a)?getReg(a):parseImm(a);
+    if(val===null) return {ok:false,error:`値が不明: ${a}`};
+    state.regs.sp=(state.regs.sp-2+65536)%65536;
+    stack.push(val);
+    change=`PUSH 0x${val.toString(16).padStart(4,'0').toUpperCase()} → SP=0x${state.regs.sp.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='pop'){
+    if(stack.length===0) return {ok:false,error:'スタックが空です'};
+    const val=stack.pop();
+    setReg(a,val);
+    state.regs.sp=(state.regs.sp+2)%65536;
+    change=`POP → ${a.toUpperCase()}=0x${val.toString(16).padStart(4,'0').toUpperCase()} SP=0x${state.regs.sp.toString(16).padStart(4,'0').toUpperCase()}`;
+  } else if(op==='nop'){
+    change='(何もしない)';
+  } else if(op==='jmp'||op==='jnz'||op==='jne'||op==='jz'||op==='je'||op==='jc'||op==='jnc'){
+    change=`${op.toUpperCase()}: シミュレータではジャンプ先追跡は省略`;
+  } else {
+    return {ok:false,error:`未対応命令: ${op}（実機で試してください）`};
+  }
+  return {ok:true,change};
+}
+
+function getLines(){
+  return document.getElementById('code').value.split('\n').filter(l=>l.trim()&&!l.trim().startsWith(';'));
+}
+
+function stepOnce(){
+  const lines = getLines();
+  if(pc >= lines.length){
+    document.getElementById('errmsg').textContent = '全命令を実行しました。リセットしてください。';
+    return;
+  }
+  prevState = cloneState(state);
+  const line = lines[pc];
+  const res = execLine(line);
+  state.regs.ip = pc+1;
+  if(!res.ok){
+    document.getElementById('errmsg').textContent = `エラー(行${pc+1}): ${res.error}`;
+    pc++; updateUI(true); return;
+  }
+  document.getElementById('errmsg').textContent = '';
+  history.push({step:pc+1, instr:line.trim(), change:res.change});
+  pc++;
+  updateUI(true);
+  renderHistory();
+}
+
+function runAll(){
+  const lines = getLines();
+  while(pc < lines.length) stepOnce();
+}
+
+function reset(){
+  state={regs:{ax:0,bx:0,cx:0,dx:0,si:0,di:0,sp:0xFFFF,bp:0,ip:0},flags:{ZF:0,CF:0,SF:0,OF:0,IF:1}};
+  prevState=null; pc=0; history=[]; stack=[];
+  document.getElementById('errmsg').textContent='';
+  updateUI(false);
+  document.getElementById('history').innerHTML='<span style="color:var(--color-text-tertiary);">実行するとここに変化が記録されます</span>';
+}
+
+function renderHistory(){
+  const el = document.getElementById('history');
+  el.innerHTML = history.slice().reverse().map(h=>`
+    <div class="hist-line">
+      <span class="hist-step">${h.step}.</span>
+      <span class="hist-instr">${h.instr}</span>
+      <span class="${h.change?'hist-change':'hist-nochange'}">${h.change||'変化なし'}</span>
+    </div>`).join('');
+}
+
+const pEl = document.getElementById('presets');
+presetSets.forEach(p=>{
+  const b=document.createElement('button');
+  b.className='preset-btn';
+  b.textContent=p.label;
+  b.onclick=()=>{document.getElementById('code').value=p.code;reset();};
+  pEl.appendChild(b);
+});
+
+updateUI(false);
+</script>

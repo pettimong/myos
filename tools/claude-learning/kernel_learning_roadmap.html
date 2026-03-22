@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<div style="padding: 1rem 0; font-family: var(--font-sans);">
+
+<style>
+.step-card {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-background-primary);
+  margin-bottom: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.step-card:hover { border-color: var(--color-border-primary); }
+.step-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+}
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500; flex-shrink: 0;
+}
+.step-body {
+  padding: 0 16px 12px 56px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  display: none;
+}
+.step-body.open { display: block; }
+.step-body code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-background-secondary);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.step-body pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0 0;
+  overflow-x: auto;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+.tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: auto;
+  font-weight: 500;
+}
+.chevron { margin-left: auto; font-size: 12px; color: var(--color-text-tertiary); transition: transform 0.2s; }
+.chevron.open { transform: rotate(90deg); }
+</style>
+
+<p style="font-size:13px; color:var(--color-text-secondary); margin-bottom:14px;">各ステップをクリックすると詳細が展開します</p>
+
+<div class="step-card" onclick="toggle(0)">
+  <div class="step-header">
+    <div class="step-num" style="background:#E6F1FB;color:#185FA5;">1</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">NASMの基本構文を手で書く</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">MOV / ADD / CMP / JMP / INT を理解する</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-success);color:var(--color-text-success);">週1〜2</span>
+    <span class="chevron" id="chev0">▶</span>
+  </div>
+  <div class="step-body" id="body0">
+    <p>アセンブリは「命令 宛先, 元」の形。まず画面に文字を出す最小コードを手書きしましょう。</p>
+    <pre>; boot.asm — 画面に'A'を出して止まる (16bit)
+[BITS 16]
+[ORG 0x7C00]
+
+    mov ah, 0x0E    ; BIOS テレタイプ出力
+    mov al, 'A'     ; 出力する文字
+    int 0x10        ; BIOS呼び出し
+
+    jmp $           ; 無限ループで停止
+
+times 510-($-$$) db 0   ; 510バイトまで0埋め
+dw 0xAA55               ; ブートシグネチャ</pre>
+    <p style="margin-top:8px;"><code>nasm -f bin boot.asm -o boot.bin</code> → <code>qemu-system-x86_64 -drive format=raw,file=boot.bin</code></p>
+    <button onclick="sendPrompt('NASMの基本命令一覧と意味を教えてください')" style="margin-top:8px;font-size:12px;padding:4px 10px;">NASMの命令一覧を聞く ↗</button>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(1)">
+  <div class="step-header">
+    <div class="step-num" style="background:#E6F1FB;color:#185FA5;">2</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">GDB + QEMUでレジスタを目で見る</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">stepi で1命令ずつ、register の変化を確認</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-success);color:var(--color-text-success);">週1</span>
+    <span class="chevron" id="chev1">▶</span>
+  </div>
+  <div class="step-body" id="body1">
+    <p>書いたコードをGDBで1命令ずつ実行して、AXの中身が変わる瞬間を見る。これが最高の学習方法です。</p>
+    <pre># ターミナル1: QEMUを一時停止状態で起動
+qemu-system-x86_64 -drive format=raw,file=boot.bin -s -S
+
+# ターミナル2: GDBで接続
+gdb
+(gdb) target remote :1234
+(gdb) set architecture i8086
+(gdb) break *0x7c00        # ブートローダの先頭でブレーク
+(gdb) continue
+(gdb) info registers       # 全レジスタ表示
+(gdb) x/16xb 0x7c00       # メモリの中身を見る
+(gdb) stepi                # 1命令実行
+(gdb) stepi                # また1命令</pre>
+    <p style="margin-top:8px;">MOVの前後でAXが変わるのを確認する→理解が一気に深まります。</p>
+    <button onclick="sendPrompt('GDBでx86アセンブリをデバッグする便利なコマンドを教えてください')" style="margin-top:8px;font-size:12px;padding:4px 10px;">GDB便利コマンドを聞く ↗</button>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(2)">
+  <div class="step-header">
+    <div class="step-num" style="background:#E1F5EE;color:#0F6E56;">3</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">スタックと関数呼び出しを理解する</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">PUSH / POP / CALL / RET、SP・BPの動き</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info);">週2</span>
+    <span class="chevron" id="chev2">▶</span>
+  </div>
+  <div class="step-body" id="body2">
+    <p>関数呼び出しはすべてスタックで実現されます。CALLは「戻り先アドレスをPUSHしてJMP」、RETは「スタックからアドレスをPOPしてJMP」です。</p>
+    <pre>; 関数呼び出しの骨格
+call my_func        ; SP-=2, [SP]=戻り先, JMP my_func
+
+my_func:
+    push bp         ; 古いBPを保存
+    mov  bp, sp     ; 現在のSPをBPに記録
+    ; … 処理 …
+    pop  bp         ; BPを戻す
+    ret             ; SP+=2, JMP [SP]</pre>
+    <p style="margin-top:8px;">GDBで <code>stepi</code> しながら SP の値が変わるのを見ると完全に理解できます。</p>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(3)">
+  <div class="step-header">
+    <div class="step-num" style="background:#E1F5EE;color:#0F6E56;">4</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">BIOS INT でI/Oを使う</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">INT 0x10（画面）INT 0x13（ディスク）INT 0x16（KB）</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-info);color:var(--color-text-info);">週2〜3</span>
+    <span class="chevron" id="chev3">▶</span>
+  </div>
+  <div class="step-body" id="body3">
+    <p>BIOSのサービスは「AHにサービス番号を入れてINT命令を呼ぶ」という共通作法です。</p>
+    <pre>; 文字列を画面に表示
+print_str:
+    mov ah, 0x0E    ; サービス: テレタイプ出力
+.loop:
+    lodsb           ; AL = [DS:SI], SI++
+    test al, al     ; AL == 0 ?
+    jz .done
+    int 0x10
+    jmp .loop
+.done:
+    ret
+
+; ディスク読み込み (INT 0x13 AH=0x02)
+    mov ah, 0x02    ; サービス: セクタ読み込み
+    mov al, 4       ; 読むセクタ数
+    mov ch, 0       ; シリンダ0
+    mov cl, 2       ; セクタ2から (1=ブートセクタ)
+    mov dh, 0       ; ヘッド0
+    mov bx, 0x8000  ; 読み込み先 ES:BX
+    int 0x13</pre>
+    <button onclick="sendPrompt('BIOS INT 0x13でディスクからカーネルを読み込む完全なコードを書いてください')" style="margin-top:8px;font-size:12px;padding:4px 10px;">ディスク読み込みコードを作る ↗</button>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(4)">
+  <div class="step-header">
+    <div class="step-num" style="background:#FAEEDA;color:#854F0B;">5</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">割り込みハンドラを自作する</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">IVTにアドレスを書き、タイマー・キーボードを捕まえる</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning);">週3〜4</span>
+    <span class="chevron" id="chev4">▶</span>
+  </div>
+  <div class="step-body" id="body4">
+    <p>IVT（0x0000〜0x003FF）は「割り込み番号 × 4」のアドレスにジャンプ先（セグメント:オフセット）が入っています。ここを書き換えると割り込みを乗っ取れます。</p>
+    <pre>; IRQ0 (タイマー, INT 0x08) を乗っ取る
+    cli                     ; 割り込み禁止
+    mov ax, 0x0000
+    mov es, ax
+    mov word [es:0x08*4],   my_timer    ; オフセット
+    mov word [es:0x08*4+2], cs          ; セグメント
+    sti                     ; 割り込み許可
+
+my_timer:
+    pusha                   ; 全レジスタ保存
+    ; … タイマー処理 …
+    mov al, 0x20
+    out 0x20, al            ; PICにEOI送信 (必須!)
+    popa                    ; 全レジスタ復元
+    iret                    ; 割り込みから復帰</pre>
+    <p style="margin-top:8px;"><code>out</code> 命令でPICにEOI(End of Interrupt)を送らないと次の割り込みが来なくなります。ここは初心者がハマりやすいポイントです。</p>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(5)">
+  <div class="step-header">
+    <div class="step-num" style="background:#FAEEDA;color:#854F0B;">6</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">疑似マルチタスク（コンテキストスイッチ）</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">タイマー割り込みでレジスタを切り替える</div>
+    </div>
+    <span class="tag" style="background:var(--color-background-warning);color:var(--color-text-warning);">週4〜6</span>
+    <span class="chevron" id="chev5">▶</span>
+  </div>
+  <div class="step-body" id="body5">
+    <p>「マルチタスク」の本質は「タイマー割り込みのたびにレジスタ一式（コンテキスト）を別のタスクのものに差し替えること」です。</p>
+    <pre>; タスク構造体（各タスクのレジスタ保存領域）
+; task_a_ctx: SP, BP, IP... を保存するメモリ領域
+; task_b_ctx: 同上
+
+my_timer:
+    pusha
+    ; 現在のタスクのSP等を task_X_ctx に保存
+    ; 次のタスクの task_Y_ctx からSP等を復元
+    popa
+    mov al, 0x20
+    out 0x20, al
+    iret</pre>
+    <p style="margin-top:8px;">これを理解した瞬間「OSって結局これか！」となります。16bitリアルモードにおける最大の達成感ポイントです。</p>
+    <button onclick="sendPrompt('16bitリアルモードで2タスクの疑似マルチタスクを実装するコードを、コメント付きで書いてください')" style="margin-top:8px;font-size:12px;padding:4px 10px;">マルチタスクのコードを作る ↗</button>
+  </div>
+</div>
+
+<div class="step-card" onclick="toggle(6)">
+  <div class="step-header">
+    <div class="step-num" style="background:#F4C0D1;color:#993556;">7</div>
+    <div>
+      <div style="font-weight:500;font-size:14px;">（発展）プロテクトモードへ移行</div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">GDT設定、CR0フラグ、32bitコードへジャンプ</div>
+    </div>
+    <span class="tag" style="background:#F4C0D1;color:#993556;">その先へ</span>
+    <span class="chevron" id="chev6">▶</span>
+  </div>
+  <div class="step-body" id="body6">
+    <p>本格的なOSを作るなら最終的にプロテクトモード（32bit）へ移行します。ここからBIOSは使えなくなり、自分でドライバを書く必要があります。</p>
+    <pre>; プロテクトモード移行の骨格
+    cli
+    lgdt [gdt_descriptor]   ; GDTを登録
+    mov eax, cr0
+    or  eax, 0x1
+    mov cr0, eax            ; PE bit ON
+    jmp 0x08:protected_mode ; Far jump でCSを更新
+
+[BITS 32]
+protected_mode:
+    ; ここから32bitコード
+    ; BIOSは使えない、4GBアドレス空間が使える</pre>
+    <p style="margin-top:8px;">参考: 「os-dev.org wiki」「Writing a Simple Operating System — From Scratch (Nick Blundell)」が定番の資料です。</p>
+  </div>
+</div>
+
+</div>
+
+<script>
+function toggle(n) {
+  const body = document.getElementById('body'+n);
+  const chev = document.getElementById('chev'+n);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+}
+</script>
