@@ -23,7 +23,7 @@ $(KERNEL_BIN): $(KERNEL) $(VGA) $(KEYBOARD)
 # 先頭512バイトに boot.bin、その直後に kernel.bin を配置します
 $(IMG): $(BOOT_BIN) $(KERNEL_BIN)
 	cat $(BOOT_BIN) $(KERNEL_BIN) > $(IMG)
-	# フロッピーサイズ(1.44MB)に足りない分を埋める（QEMUの警告対策）
+# フロッピーサイズ(1.44MB)に足りない分を埋める（QEMUの警告対策）
 	truncate -s 1440k $(IMG)
 
 run: $(IMG)
